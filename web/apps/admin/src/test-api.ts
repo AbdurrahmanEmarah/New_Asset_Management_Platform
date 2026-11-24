@@ -1,4 +1,5 @@
 import { vi } from 'vitest';
+import type { SupportApi, SupportSession } from './api/support';
 import type { Client, Me, Plan, TenancyApi } from './api/tenancy';
 
 export const OWNER: Me = { id: 'o1', name: 'Platform Owner', email: 'owner@inventra.local', roles: ['platform-owner'], canManageClients: true, canManageBilling: true };
@@ -32,6 +33,26 @@ export function fakeApi(overrides: Partial<TenancyApi> = {}): TenancyApi {
     plans: vi.fn().mockResolvedValue(PLANS),
     regions: vi.fn().mockResolvedValue([{ key: 'uae-north', name: 'UAE North' }, { key: 'west-europe', name: 'West Europe' }]),
     audit: vi.fn().mockResolvedValue([]),
+    ...overrides,
+  };
+}
+
+export const BILLING: Me = { id: 'b1', name: 'Billing Clerk', email: 'billing@inventra.local', roles: ['platform-billing'], canManageClients: false, canManageBilling: true };
+
+export function session(overrides: Partial<SupportSession> = {}): SupportSession {
+  return {
+    id: 's1', clientId: 'c1', clientName: 'Gulf Facilities Co.', requestedByName: 'Support Agent',
+    reason: 'Ticket #4182: imported assets are missing their location.', access: 'read', durationMinutes: 60, status: 'active',
+    requestedAt: '2026-11-24T09:00:00Z', startedAt: '2026-11-24T09:00:00Z', endsAt: '2026-11-24T10:00:00Z', endedAt: null, cannotEndReason: null,
+    ...overrides,
+  };
+}
+
+export function fakeSupport(overrides: Partial<SupportApi> = {}): SupportApi {
+  return {
+    list: vi.fn().mockImplementation((state: 'active' | 'past') => Promise.resolve(state === 'active' ? [session()] : [])),
+    request: vi.fn(),
+    end: vi.fn(),
     ...overrides,
   };
 }

@@ -22,3 +22,9 @@ export function roleLabel(me: Me): string {
   if (me.roles.includes('platform-support')) return 'Support';
   return 'No platform role';
 }
+
+export const SUPPORT_ONLY = 'Only Support staff and the Platform Owner can request support access.';
+
+export function canRequestSupport(me: Me): boolean {
+  return me.roles.includes('platform-owner') || me.roles.includes('platform-support');
+}
