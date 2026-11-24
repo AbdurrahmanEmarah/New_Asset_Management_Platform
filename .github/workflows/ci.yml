@@ -67,3 +67,22 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npx vite build --config apps/admin/vite.config.ts
+
+  mobile:
+    name: Field app typecheck, lint and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
