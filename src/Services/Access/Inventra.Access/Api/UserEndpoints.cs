@@ -92,14 +92,14 @@ public static class UserEndpoints
         var existing = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == email, ct);
         if (existing is not null) return EmailTaken(existing);
 
-        var (roles, problem) = await RoleAssignment.ResolveAsync(db, request.RoleIds, caller, ct);
+        var (roles, assignments, problem) = await RoleRules.ResolveAsync(db, request.Roles, caller, ct);
         if (problem is not null) return problem;
 
         var seats = await Seats.CountAsync(db, caller.Client, ct);
         if (caller.Client.CannotAddSeatReason(seats.Seats) is { } full) return Problems.Conflict(full);
 
         var now = clock.GetUtcNow();
-        var user = AppUser.Invite(caller.TenantId, email, request.Name ?? "", roles!, caller.ActorName, now);
+        var user = AppUser.Invite(caller.TenantId, email, request.Name ?? "", assignments!, caller.ActorName, now);
         var (invitation, token) = Invitation.Create(user, caller.ActorName, now);
         db.Users.Add(user);
         db.Invitations.Add(invitation);
@@ -229,7 +229,7 @@ public static class UserEndpoints
         var owners = await OwnerFacts.LoadAsync(db, ct);
         if (UserViews.CannotChangeRolesReason(user, owners, caller) is { } why) return Problems.Conflict(why);
 
-        var (roles, problem) = await RoleAssignment.ResolveAsync(db, request.RoleIds, caller, ct);
+        var (roles, assignments, problem) = await RoleRules.ResolveAsync(db, request.Roles, caller, ct);
         if (problem is not null) return problem;
 
         var keepsOwner = roles!.Any(r => r.Id == owners.OwnerRoleId);
@@ -238,7 +238,7 @@ public static class UserEndpoints
 
         var allRoles = await db.Roles.AsNoTracking().ToDictionaryAsync(r => r.Id, ct);
         var before = string.Join(", ", user.Roles.Select(r => allRoles.TryGetValue(r.RoleId, out var role) ? role.Name : "?").Order());
-        user.SetRoles(roles!);
+        user.SetRoles(assignments!);
         var after = string.Join(", ", roles!.Select(r => r.Name).Order());
 
         var now = clock.GetUtcNow();

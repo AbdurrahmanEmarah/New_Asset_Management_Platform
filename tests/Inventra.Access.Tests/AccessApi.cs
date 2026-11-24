@@ -12,7 +12,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Wolverine.Tracking;
+using Wolverine;
 
 [assembly: AssemblyFixture(typeof(Inventra.Access.Tests.AccessApi))]
 
@@ -38,6 +38,8 @@ public sealed class AccessApi : IAsyncLifetime
 
     public FakeIdentityDirectory Directory { get; } = new();
 
+    public PublishedEvents Events { get; } = new();
+
     public string ConnectionString => _db!.ConnectionString;
 
     public IServiceProvider Services => _factory!.Services;
@@ -56,6 +58,8 @@ public sealed class AccessApi : IAsyncLifetime
                 s.AddTestAuthentication().AddTestMessaging();
                 s.RemoveAll<IIdentityDirectory>();
                 s.AddSingleton<IIdentityDirectory>(Directory);
+                s.AddSingleton(Events);
+                s.ConfigureWolverine(o => o.Discovery.IncludeType(typeof(ObservedAccessEvents)));
             });
         });
         _ = _factory.Server;
@@ -72,7 +76,11 @@ public sealed class AccessApi : IAsyncLifetime
     }
 
     /// <summary>Delivers a Tenancy event the way the bus would, and waits until it is handled.</summary>
-    public Task<ITrackedSession> DeliverAsync(object message) => Services.InvokeMessageAndWaitAsync(message);
+    public async Task DeliverAsync(object message)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<IMessageBus>().InvokeAsync(message);
+    }
 
     /// <summary>Creates a client through its ClientCreated event and has its Owner accept the invitation.</summary>
     public async Task<Company> CreateCompanyAsync(string name = "Gulf Facilities Co.", int maxUsers = 25)
@@ -91,15 +99,15 @@ public sealed class AccessApi : IAsyncLifetime
     public async Task<(TestUser User, Guid UserId)> AddMemberAsync(Company company, params string[] builtInRoles)
     {
         var roles = await Read<List<RoleResponse>>(await Client(company.Owner).GetAsync("/roles"));
-        var roleIds = builtInRoles.Select(k => roles.Single(r => r.BuiltInKey == k).Id).ToList();
-        return await AddMemberWithRolesAsync(company, roleIds);
+        var assignments = builtInRoles.Select(k => new RoleAssignmentRequest(roles.Single(r => r.BuiltInKey == k).Id, [])).ToList();
+        return await AddMemberWithRolesAsync(company, assignments);
     }
 
-    public async Task<(TestUser User, Guid UserId)> AddMemberWithRolesAsync(Company company, IReadOnlyList<Guid> roleIds)
+    public async Task<(TestUser User, Guid UserId)> AddMemberWithRolesAsync(Company company, IReadOnlyList<RoleAssignmentRequest> roles)
     {
         var n = Guid.NewGuid().ToString("N")[..8];
         var email = $"member-{n}@example.test";
-        var invite = await Read<InvitationLinkResponse>(await Client(company.Owner).PostAsJsonAsync("/users", new InviteUserRequest(email, $"Member {n}", roleIds)));
+        var invite = await Read<InvitationLinkResponse>(await Client(company.Owner).PostAsJsonAsync("/users", new InviteUserRequest(email, $"Member {n}", roles)));
         var signIn = TestUser.Tenant(null, $"sub-{n}", $"Member {n}", email);
         await Read<AcceptInvitationResponse>(await Client(signIn).PostAsJsonAsync("/invitations/accept", new InvitationTokenRequest(TokenOf(invite.AcceptUrl))));
         return (signIn with { TenantId = company.Id }, invite.User.Id);

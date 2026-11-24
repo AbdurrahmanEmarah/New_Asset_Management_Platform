@@ -42,7 +42,7 @@ public sealed class AppUser
 
     public List<UserRole> Roles { get; private set; } = [];
 
-    public static AppUser Invite(Guid tenantId, string email, string name, IEnumerable<Role> roles, string invitedByName, DateTimeOffset now)
+    public static AppUser Invite(Guid tenantId, string email, string name, IEnumerable<RoleAssignment> roles, string invitedByName, DateTimeOffset now)
     {
         var user = new AppUser
         {
@@ -60,11 +60,16 @@ public sealed class AppUser
 
     public bool HasRole(Guid roleId) => Roles.Any(r => r.RoleId == roleId);
 
-    public void SetRoles(IEnumerable<Role> roles)
+    /// <summary>Replaces the person's roles. Each assignment carries the sites where it applies (empty = every site).</summary>
+    public void SetRoles(IEnumerable<RoleAssignment> assignments)
     {
-        var wanted = roles.Select(r => r.Id).Distinct().ToHashSet();
-        Roles.RemoveAll(r => !wanted.Contains(r.RoleId));
-        foreach (var id in wanted.Where(id => !HasRole(id))) Roles.Add(new UserRole(TenantId, Id, id));
+        var wanted = assignments.GroupBy(a => a.RoleId).ToDictionary(g => g.Key, g => g.SelectMany(a => a.SiteIds).Distinct().ToList());
+        Roles.RemoveAll(r => !wanted.ContainsKey(r.RoleId));
+        foreach (var (roleId, sites) in wanted)
+        {
+            if (Roles.FirstOrDefault(r => r.RoleId == roleId) is { } existing) existing.SiteIds = sites;
+            else Roles.Add(new UserRole(TenantId, Id, roleId) { SiteIds = sites });
+        }
     }
 
     /// <summary>Why this invitation can't be accepted by this sign-in, or null when it can.</summary>
@@ -124,10 +129,14 @@ public sealed class AppUser
     public void SetTheme(ThemePreference theme) => Theme = theme;
 }
 
-/// <summary>One role given to one person.</summary>
+/// <summary>A role to give, and where it applies. Empty SiteIds means every site.</summary>
+public sealed record RoleAssignment(Guid RoleId, IReadOnlyList<Guid> SiteIds);
+
+/// <summary>One role given to one person, at some sites (empty = every site).</summary>
 public sealed class UserRole(Guid tenantId, Guid userId, Guid roleId)
 {
     public Guid TenantId { get; private set; } = tenantId;
     public Guid UserId { get; private set; } = userId;
     public Guid RoleId { get; private set; } = roleId;
+    public List<Guid> SiteIds { get; set; } = [];
 }

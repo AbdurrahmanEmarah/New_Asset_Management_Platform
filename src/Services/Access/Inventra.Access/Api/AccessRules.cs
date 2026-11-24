@@ -86,7 +86,9 @@ internal static class UserViews
 
     public static UserResponse ToResponse(AppUser u, IReadOnlyDictionary<Guid, Role> roles, OwnerFacts owners, Caller caller, Invitation? openInvitation) => new(
         u.Id, u.Email, u.Name, u.Status, owners.IsOwner(u),
-        u.Roles.Select(r => roles.TryGetValue(r.RoleId, out var role) ? new RoleRef(role.Id, role.Name) : new RoleRef(r.RoleId, "(deleted role)"))
+        u.Roles.Select(a => roles.TryGetValue(a.RoleId, out var role)
+                ? new AssignedRole(role.Id, role.Name, role.Kind, a.SiteIds.Count == 0, a.SiteIds)
+                : new AssignedRole(a.RoleId, "(deleted role)", "custom", a.SiteIds.Count == 0, a.SiteIds))
             .OrderBy(r => r.Name).ToList(),
         u.InvitedAt, u.InvitedByName, openInvitation?.ExpiresAt, u.JoinedAt, u.DeactivatedAt, u.DeactivatedByName,
         u.CannotDeactivateReason(owners.IsOwner(u), owners.ActiveOwners, caller.IsOwner, caller.User?.Id),
@@ -103,23 +105,42 @@ internal static class UserViews
     }
 }
 
-internal static class RoleAssignment
+internal static class RoleRules
 {
     /// <summary>
-    /// Checks the roles someone may be given by this caller. Returns the roles, or the problem to send back.
-    /// Rules: at least one role; only an Owner makes Owners; a non-Owner can only give roles whose
-    /// permissions they have themselves (no one can hand out more than they hold).
+    /// Checks the role assignments someone may be given by this caller. Returns the roles and
+    /// assignments, or the problem to send back. Rules: at least one role; chosen sites must exist;
+    /// the Owner role applies everywhere; only an Owner makes Owners; a non-Owner can only give roles
+    /// whose permissions they have themselves (no one can hand out more than they hold).
     /// </summary>
-    public static async Task<(List<Role>? Roles, IResult? Problem)> ResolveAsync(AccessDbContext db, IReadOnlyList<Guid>? roleIds, Caller caller, CancellationToken ct)
+    public static async Task<(List<Role>? Roles, List<Domain.RoleAssignment>? Assignments, IResult? Problem)> ResolveAsync(
+        AccessDbContext db, IReadOnlyList<RoleAssignmentRequest>? requested, Caller caller, CancellationToken ct)
     {
-        if (roleIds is null || roleIds.Count == 0)
-            return (null, new FieldErrors().Add("roleIds", "Choose at least one role.").ToResult());
+        if (requested is null || requested.Count == 0)
+            return (null, null, new FieldErrors().Add("roles", "Choose at least one role.").ToResult());
+        if (requested.GroupBy(r => r.RoleId).Any(g => g.Count() > 1))
+            return (null, null, new FieldErrors().Add("roles", "Each role can be chosen once. Put all its sites on that one entry.").ToResult());
 
-        var ids = roleIds.Distinct().ToList();
+        var ids = requested.Select(r => r.RoleId).ToList();
         var roles = await db.Roles.AsNoTracking().Where(r => ids.Contains(r.Id)).ToListAsync(ct);
         if (roles.Count != ids.Count)
-            return (null, new FieldErrors().Add("roleIds", "One of the chosen roles doesn't exist any more. Reload the page and choose again.").ToResult());
+            return (null, null, new FieldErrors().Add("roles", "One of the chosen roles doesn't exist any more. Reload the page and choose again.").ToResult());
 
+        var siteIds = requested.SelectMany(r => r.SiteIds ?? []).Distinct().ToList();
+        if (siteIds.Count > 0 && await db.Sites.CountAsync(s => siteIds.Contains(s.Id), ct) != siteIds.Count)
+            return (null, null, new FieldErrors().Add("roles", "One of the chosen sites doesn't exist. Reload the page and choose again.").ToResult());
+
+        var owner = roles.FirstOrDefault(r => r.IsOwner);
+        if (owner is not null && requested.Single(r => r.RoleId == owner.Id).SiteIds is { Count: > 0 })
+            return (null, null, new FieldErrors().Add("roles", "The Owner role always applies to every site. Leave its sites empty.").ToResult());
+
+        var assignments = requested.Select(r => new Domain.RoleAssignment(r.RoleId, (r.SiteIds ?? []).Distinct().ToList())).ToList();
+        var (checkedRoles, problem) = CheckGrantable(roles, caller);
+        return (checkedRoles, problem is null ? assignments : null, problem);
+    }
+
+    private static (List<Role>? Roles, IResult? Problem) CheckGrantable(List<Role> roles, Caller caller)
+    {
         if (roles.Any(r => r.IsOwner) && !caller.IsOwner)
             return (null, Problems.Conflict("Only an Owner can make someone an Owner."));
 

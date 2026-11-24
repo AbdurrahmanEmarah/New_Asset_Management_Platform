@@ -38,7 +38,7 @@ public static class ClientCreatedHandler
         var roles = BuiltInRoles.All.Select(r => Role.FromBuiltIn(client.TenantId, r, now)).ToList();
         db.Roles.AddRange(roles);
 
-        var owner = AppUser.Invite(client.TenantId, message.OwnerEmail, message.OwnerName, [roles.Single(r => r.IsOwner)], "Inventra", now);
+        var owner = AppUser.Invite(client.TenantId, message.OwnerEmail, message.OwnerName, [new RoleAssignment(roles.Single(r => r.IsOwner).Id, [])], "Inventra", now);
         var (invitation, token) = Invitation.Create(owner, "Inventra", now);
         db.Users.Add(owner);
         db.Invitations.Add(invitation);

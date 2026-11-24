@@ -7,8 +7,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Inventra.Access.Api;
 
-/// <summary>One role's permissions and where they apply. Empty SiteIds means every site.</summary>
-public sealed record RoleGrant(Guid RoleId, string RoleName, IReadOnlyList<string> Permissions, IReadOnlyList<Guid> SiteIds);
+/// <summary>One of the person's role assignments: its permissions and where they apply. Empty SiteIds means every site.</summary>
+public sealed record RoleGrant(Guid RoleId, string RoleName, string Kind, IReadOnlyList<string> Permissions, IReadOnlyList<Guid> SiteIds);
 
 /// <summary>
 /// Who is acting inside a client for this request: a member of the client, or platform staff
@@ -57,7 +57,8 @@ public sealed class Caller
         ActorName = string.IsNullOrWhiteSpace(user.Name) ? user.Email : user.Name;
         Kind = ActorKind.User;
         IsOwner = roles.Any(r => r.IsOwner);
-        Grants = roles.Select(r => new RoleGrant(r.Id, r.Name, r.EffectivePermissions, r.SiteIds)).ToList();
+        var sites = user.Roles.ToDictionary(a => a.RoleId, a => (IReadOnlyList<Guid>)a.SiteIds);
+        Grants = roles.Select(r => new RoleGrant(r.Id, r.Name, r.Kind, r.EffectivePermissions, sites.GetValueOrDefault(r.Id) ?? [])).ToList();
         _permissions = roles.SelectMany(r => r.EffectivePermissions).ToHashSet(StringComparer.Ordinal);
     }
 

@@ -7,11 +7,14 @@ namespace Inventra.Access.Api;
 
 public sealed record PreferencesRequest(string? Theme);
 
-public sealed record InviteUserRequest(string? Email, string? Name, IReadOnlyList<Guid>? RoleIds);
+/// <summary>A role to give and where it applies. Leave SiteIds empty (or out) for every site.</summary>
+public sealed record RoleAssignmentRequest(Guid RoleId, IReadOnlyList<Guid>? SiteIds);
 
-public sealed record SetUserRolesRequest(IReadOnlyList<Guid>? RoleIds);
+public sealed record InviteUserRequest(string? Email, string? Name, IReadOnlyList<RoleAssignmentRequest>? Roles);
 
-public sealed record RoleRequest(string? Name, string? Description, IReadOnlyList<string>? Permissions, IReadOnlyList<Guid>? SiteIds);
+public sealed record SetUserRolesRequest(IReadOnlyList<RoleAssignmentRequest>? Roles);
+
+public sealed record RoleRequest(string? Name, string? Description, IReadOnlyList<string>? Permissions);
 
 public sealed record CopyRoleRequest(string? Name);
 
@@ -23,12 +26,16 @@ public sealed record StartSupportPassRequest(string? Reason, int? Minutes, strin
 
 public sealed record CompanyRef(Guid Id, string Name, string Slug);
 
-public sealed record RoleRef(Guid Id, string Name);
+/// <summary>A role a person has and the sites where it applies. Kind is "owner", "built_in" or "custom"; AllSites is true when SiteIds is empty.</summary>
+public sealed record AssignedRole(Guid Id, string Name, string Kind, bool AllSites, IReadOnlyList<Guid> SiteIds);
 
-/// <summary>A role's permissions and where they apply. AllSites is true when SiteIds is empty.</summary>
-public sealed record GrantResponse(Guid RoleId, string RoleName, IReadOnlyList<string> Permissions, bool AllSites, IReadOnlyList<Guid> SiteIds)
+/// <summary>
+/// One of the signed-in person's roles, with its permissions. The sites where the person may use a
+/// permission are the union of the sites of the roles that grant it; a role at all sites wins.
+/// </summary>
+public sealed record MeRole(Guid Id, string Name, string Kind, bool AllSites, IReadOnlyList<Guid> SiteIds, IReadOnlyList<string> Permissions)
 {
-    public static GrantResponse From(RoleGrant g) => new(g.RoleId, g.RoleName, g.Permissions, g.SiteIds.Count == 0, g.SiteIds);
+    public static MeRole From(RoleGrant g) => new(g.RoleId, g.RoleName, g.Kind, g.SiteIds.Count == 0, g.SiteIds, g.Permissions);
 }
 
 public sealed record SupportSessionResponse(Guid PassId, SupportAccess Access, DateTimeOffset ExpiresAt);
@@ -45,7 +52,7 @@ public sealed record MeResponse(
     CompanyRef Company,
     bool IsOwner,
     IReadOnlyList<string> Permissions,
-    IReadOnlyList<GrantResponse> Grants,
+    IReadOnlyList<MeRole> Roles,
     SupportSessionResponse? SupportSession);
 
 public sealed record PermissionResponse(string Key, string Label);
@@ -60,16 +67,14 @@ public sealed record RoleResponse(
     string Kind,
     string? BuiltInKey,
     IReadOnlyList<string> Permissions,
-    bool AllSites,
-    IReadOnlyList<Guid> SiteIds,
     int MemberCount,
     string? CannotEditReason,
     string? CannotDeleteReason,
     DateTimeOffset UpdatedAt)
 {
     public static RoleResponse From(Role r, int members) => new(
-        r.Id, r.Name, r.Description, r.IsOwner ? "owner" : r.IsBuiltIn ? "built_in" : "custom", r.BuiltInKey,
-        r.EffectivePermissions, r.SiteIds.Count == 0, r.SiteIds, members,
+        r.Id, r.Name, r.Description, r.Kind, r.BuiltInKey,
+        r.EffectivePermissions, members,
         r.CannotEditReason(), r.CannotDeleteReason(members), r.UpdatedAt);
 }
 
@@ -80,7 +85,7 @@ public sealed record UserResponse(
     string Name,
     UserStatus Status,
     bool IsOwner,
-    IReadOnlyList<RoleRef> Roles,
+    IReadOnlyList<AssignedRole> Roles,
     DateTimeOffset InvitedAt,
     string InvitedByName,
     DateTimeOffset? InvitationExpiresAt,

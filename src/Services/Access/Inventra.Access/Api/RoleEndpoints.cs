@@ -16,7 +16,7 @@ public static class RoleEndpoints
         roles.MapPost("/", CreateRole).Produces<RoleResponse>(201).ProducesValidationProblem().ProducesProblem(409).RequirePermission(Permissions.RolesManage);
         roles.MapPut("/{id:guid}", UpdateRole).Produces<RoleResponse>().ProducesValidationProblem().ProducesProblem(404).ProducesProblem(409).RequirePermission(Permissions.RolesManage);
         roles.MapPost("/{id:guid}/copy", CopyRole).Produces<RoleResponse>(201).ProducesValidationProblem().ProducesProblem(404).ProducesProblem(409).RequirePermission(Permissions.RolesManage)
-            .WithSummary("Makes an editable custom role with the same permissions and sites.");
+            .WithSummary("Makes an editable custom role with the same permissions (the mockup's Duplicate).");
         roles.MapDelete("/{id:guid}", DeleteRole).Produces(204).ProducesProblem(404).ProducesProblem(409).RequirePermission(Permissions.RolesManage);
         return app;
     }
@@ -47,7 +47,7 @@ public static class RoleEndpoints
         if (EscalationProblem(caller, permissions) is { } escalation) return escalation;
 
         var now = clock.GetUtcNow();
-        var role = Role.Custom(caller.TenantId, request.Name!, request.Description ?? "", permissions, request.SiteIds ?? [], now);
+        var role = Role.Custom(caller.TenantId, request.Name!, request.Description ?? "", permissions, now);
         db.Roles.Add(role);
         db.AuditEntries.Add(caller.Audit(AccessAuditActions.RoleCreated, "role", role.Id,
             $"Created \"{role.Name}\" with {Summary(role)}.", now));
@@ -68,11 +68,11 @@ public static class RoleEndpoints
 
         var before = Summary(role);
         var removed = role.Permissions.Except(permissions).ToList();
-        role.Update(request.Name!, request.Description ?? "", permissions, request.SiteIds ?? [], clock.GetUtcNow());
+        role.Update(request.Name!, request.Description ?? "", permissions, clock.GetUtcNow());
 
         var changes = new List<string>();
-        if (added.Count > 0) changes.Add($"added {RoleAssignment.Describe(added)}");
-        if (removed.Count > 0) changes.Add($"removed {RoleAssignment.Describe(removed)}");
+        if (added.Count > 0) changes.Add($"added {RoleRules.Describe(added)}");
+        if (removed.Count > 0) changes.Add($"removed {RoleRules.Describe(removed)}");
         changes.Add($"was {before}, now {Summary(role)}");
         db.AuditEntries.Add(caller.Audit(AccessAuditActions.RoleUpdated, "role", role.Id, $"\"{role.Name}\": {string.Join("; ", changes)}.", clock.GetUtcNow()));
 
@@ -90,7 +90,7 @@ public static class RoleEndpoints
         if (name.Length > Role.NameMax) return new FieldErrors().Add("name", $"Use {Role.NameMax} characters or fewer.").ToResult();
 
         var now = clock.GetUtcNow();
-        var copy = Role.Custom(caller.TenantId, name, source.Description, source.EffectivePermissions, source.SiteIds, now);
+        var copy = Role.Custom(caller.TenantId, name, source.Description, source.EffectivePermissions, now);
         db.Roles.Add(copy);
         db.AuditEntries.Add(caller.Audit(AccessAuditActions.RoleCreated, "role", copy.Id, $"Copied \"{source.Name}\" as \"{copy.Name}\" with {Summary(copy)}.", now));
         if (await SaveAsync(db, copy.Name, ct) is { } taken) return taken;
@@ -119,10 +119,6 @@ public static class RoleEndpoints
         foreach (var unknown in (request.Permissions ?? []).Where(p => !Permissions.Exists(p)).Distinct())
             errors.Add("permissions", $"\"{unknown}\" isn't a permission. Choose from the list.");
 
-        var siteIds = (request.SiteIds ?? []).Distinct().ToList();
-        if (siteIds.Count > 0 && await db.Sites.CountAsync(s => siteIds.Contains(s.Id), ct) != siteIds.Count)
-            errors.Add("siteIds", "One of the chosen sites doesn't exist. Reload the page and choose again.");
-
         if (!string.IsNullOrWhiteSpace(request.Name) && !errors.Any)
         {
             var normalized = Role.Normalize(request.Name);
@@ -139,7 +135,7 @@ public static class RoleEndpoints
         if (caller.IsOwner) return null;
         var missing = permissions.Where(p => Permissions.Exists(p) && !caller.Has(p)).Distinct().ToList();
         return missing.Count == 0 ? null : Problems.Conflict(
-            $"You can only give permissions you have yourself. You don't have {RoleAssignment.Describe(missing)}. Ask an Owner to make this change.");
+            $"You can only give permissions you have yourself. You don't have {RoleRules.Describe(missing)}. Ask an Owner to make this change.");
     }
 
     private static async Task<IResult?> SaveAsync(AccessDbContext db, string name, CancellationToken ct)
@@ -164,7 +160,7 @@ public static class RoleEndpoints
     }
 
     private static string Summary(Role role) =>
-        $"{role.EffectivePermissions.Count} permissions at {(role.SiteIds.Count == 0 ? "all sites" : $"{role.SiteIds.Count} site(s)")}";
+        $"{role.EffectivePermissions.Count} permissions";
 
     internal static async Task<Dictionary<Guid, int>> MemberCountsAsync(AccessDbContext db, CancellationToken ct) =>
         await db.UserRoles.GroupBy(ur => ur.RoleId).Select(g => new { g.Key, Count = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.Count, ct);

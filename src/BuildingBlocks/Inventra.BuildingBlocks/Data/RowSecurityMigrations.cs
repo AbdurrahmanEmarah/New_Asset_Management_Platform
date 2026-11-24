@@ -16,6 +16,9 @@ public static class RowSecurityMigrations
     /// Creates the restricted role (<see cref="RowSecurity.DefaultRole"/>) if it doesn't exist, lets the
     /// login user switch to it, and grants it data access to the service's tables. Safe to run in
     /// several databases at once (roles are shared by the whole server).
+    /// In Azure the migrator may not create roles: the step then only warns, and the service runs
+    /// as its own least-privilege login (not the table owner) with Database:RowSecurityRole empty,
+    /// so the policies apply to that login directly.
     /// </summary>
     /// <param name="extraSchemas">Other schemas the role writes to in the same transaction, such as "wolverine" for the outbox.</param>
     public static MigrationBuilder CreateRowSecurityRole(this MigrationBuilder migration, params string[] extraSchemas)
@@ -27,7 +30,11 @@ public static class RowSecurityMigrations
               IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{role}') THEN
                 BEGIN
                   CREATE ROLE {role} NOLOGIN NOBYPASSRLS;
-                EXCEPTION WHEN duplicate_object OR unique_violation THEN NULL;
+                EXCEPTION
+                  WHEN duplicate_object OR unique_violation THEN NULL;
+                  WHEN insufficient_privilege THEN
+                    RAISE WARNING 'Could not create role {role} (%). Run the service as a login that does not own the tables, with Database:RowSecurityRole empty.', SQLERRM;
+                    RETURN;
                 END;
               END IF;
               IF NOT pg_has_role(current_user, '{role}', 'MEMBER') THEN
@@ -43,14 +50,14 @@ public static class RowSecurityMigrations
 
         foreach (var schema in new[] { "public" }.Concat(extraSchemas))
         {
-            migration.Sql($"""
-                CREATE SCHEMA IF NOT EXISTS {schema};
+            migration.Sql($"CREATE SCHEMA IF NOT EXISTS {schema};");
+            migration.Sql(IfRoleExists($"""
                 GRANT USAGE ON SCHEMA {schema} TO {role};
                 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA {schema} TO {role};
                 GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA {schema} TO {role};
                 ALTER DEFAULT PRIVILEGES IN SCHEMA {schema} GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {role};
                 ALTER DEFAULT PRIVILEGES IN SCHEMA {schema} GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO {role};
-                """);
+                """));
         }
 
         return migration;
@@ -67,8 +74,12 @@ public static class RowSecurityMigrations
             ALTER TABLE {table} ENABLE ROW LEVEL SECURITY;
             ALTER TABLE {table} FORCE ROW LEVEL SECURITY;
             CREATE POLICY tenant_isolation ON {table} USING ({expression}) WITH CHECK ({expression});
-            GRANT SELECT, INSERT, UPDATE, DELETE ON {table} TO {RowSecurity.DefaultRole};
             """);
+        migration.Sql(IfRoleExists($"GRANT SELECT, INSERT, UPDATE, DELETE ON {table} TO {RowSecurity.DefaultRole};"));
         return migration;
     }
+
+    private static string IfRoleExists(string statements) =>
+        "DO $$\nBEGIN\n  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '" + RowSecurity.DefaultRole + "') THEN\n"
+        + statements + "\n  END IF;\nEND\n$$;";
 }

@@ -468,7 +468,7 @@
         "tags": [
           "Roles"
         ],
-        "summary": "Makes an editable custom role with the same permissions and sites.",
+        "summary": "Makes an editable custom role with the same permissions (the mockup\u0027s Duplicate).",
         "parameters": [
           {
             "name": "id",
@@ -1734,6 +1734,38 @@
           "system"
         ]
       },
+      "AssignedRole": {
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "allSites",
+          "siteIds"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "allSites": {
+            "type": "boolean"
+          },
+          "siteIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
       "AuditEntryResponse": {
         "required": [
           "id",
@@ -1825,41 +1857,6 @@
               "null",
               "string"
             ]
-          }
-        }
-      },
-      "GrantResponse": {
-        "required": [
-          "roleId",
-          "roleName",
-          "permissions",
-          "allSites",
-          "siteIds"
-        ],
-        "type": "object",
-        "properties": {
-          "roleId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "roleName": {
-            "type": "string"
-          },
-          "permissions": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "allSites": {
-            "type": "boolean"
-          },
-          "siteIds": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            }
           }
         }
       },
@@ -1995,7 +1992,7 @@
         "required": [
           "email",
           "name",
-          "roleIds"
+          "roles"
         ],
         "type": "object",
         "properties": {
@@ -2011,14 +2008,13 @@
               "string"
             ]
           },
-          "roleIds": {
+          "roles": {
             "type": [
               "null",
               "array"
             ],
             "items": {
-              "type": "string",
-              "format": "uuid"
+              "$ref": "#/components/schemas/RoleAssignmentRequest"
             }
           }
         }
@@ -2032,7 +2028,7 @@
           "company",
           "isOwner",
           "permissions",
-          "grants",
+          "roles",
           "supportSession"
         ],
         "type": "object",
@@ -2068,10 +2064,10 @@
               "type": "string"
             }
           },
-          "grants": {
+          "roles": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/GrantResponse"
+              "$ref": "#/components/schemas/MeRole"
             }
           },
           "supportSession": {
@@ -2083,6 +2079,45 @@
                 "$ref": "#/components/schemas/SupportSessionResponse"
               }
             ]
+          }
+        }
+      },
+      "MeRole": {
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "allSites",
+          "siteIds",
+          "permissions"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "allSites": {
+            "type": "boolean"
+          },
+          "siteIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -2214,19 +2249,26 @@
           }
         }
       },
-      "RoleRef": {
+      "RoleAssignmentRequest": {
         "required": [
-          "id",
-          "name"
+          "roleId",
+          "siteIds"
         ],
         "type": "object",
         "properties": {
-          "id": {
+          "roleId": {
             "type": "string",
             "format": "uuid"
           },
-          "name": {
-            "type": "string"
+          "siteIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         }
       },
@@ -2234,8 +2276,7 @@
         "required": [
           "name",
           "description",
-          "permissions",
-          "siteIds"
+          "permissions"
         ],
         "type": "object",
         "properties": {
@@ -2259,16 +2300,6 @@
             "items": {
               "type": "string"
             }
-          },
-          "siteIds": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            }
           }
         }
       },
@@ -2280,8 +2311,6 @@
           "kind",
           "builtInKey",
           "permissions",
-          "allSites",
-          "siteIds",
           "memberCount",
           "cannotEditReason",
           "cannotDeleteReason",
@@ -2312,16 +2341,6 @@
             "type": "array",
             "items": {
               "type": "string"
-            }
-          },
-          "allSites": {
-            "type": "boolean"
-          },
-          "siteIds": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
             }
           },
           "memberCount": {
@@ -2408,18 +2427,17 @@
       },
       "SetUserRolesRequest": {
         "required": [
-          "roleIds"
+          "roles"
         ],
         "type": "object",
         "properties": {
-          "roleIds": {
+          "roles": {
             "type": [
               "null",
               "array"
             ],
             "items": {
-              "type": "string",
-              "format": "uuid"
+              "$ref": "#/components/schemas/RoleAssignmentRequest"
             }
           }
         }
@@ -2672,7 +2690,7 @@
           "roles": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/RoleRef"
+              "$ref": "#/components/schemas/AssignedRole"
             }
           },
           "invitedAt": {

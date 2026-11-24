@@ -13,7 +13,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Inventra.Access.Data.Migrations
 {
     [DbContext(typeof(AccessDbContext))]
-    [Migration("20261124171743_Initial")]
+    [Migration("20261124224842_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -358,11 +358,6 @@ namespace Inventra.Access.Data.Migrations
                         .HasColumnType("text[]")
                         .HasColumnName("permissions");
 
-                    b.PrimitiveCollection<List<Guid>>("SiteIds")
-                        .IsRequired()
-                        .HasColumnType("uuid[]")
-                        .HasColumnName("site_ids");
-
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")
                         .HasColumnName("tenant_id");
@@ -515,6 +510,11 @@ namespace Inventra.Access.Data.Migrations
                     b.Property<Guid>("RoleId")
                         .HasColumnType("uuid")
                         .HasColumnName("role_id");
+
+                    b.PrimitiveCollection<List<Guid>>("SiteIds")
+                        .IsRequired()
+                        .HasColumnType("uuid[]")
+                        .HasColumnName("site_ids");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")

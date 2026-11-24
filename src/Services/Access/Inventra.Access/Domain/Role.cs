@@ -1,6 +1,6 @@
 namespace Inventra.Access.Domain;
 
-/// <summary>A named set of permissions, optionally limited to some sites.</summary>
+/// <summary>A named set of permissions. Where it applies is set per person, on the assignment (<see cref="UserRole"/>).</summary>
 public sealed class Role
 {
     public const int NameMax = 60;
@@ -19,14 +19,14 @@ public sealed class Role
     public string NormalizedName { get; private set; } = "";
     public string Description { get; private set; } = "";
     public List<string> Permissions { get; private set; } = [];
-
-    /// <summary>The sites this role applies to. Empty means every site.</summary>
-    public List<Guid> SiteIds { get; private set; } = [];
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
 
     public bool IsBuiltIn => BuiltInKey is not null;
     public bool IsOwner => BuiltInKey == BuiltInRoles.Owner;
+
+    /// <summary>"owner", "built_in" or "custom". Apps match on this, never on names.</summary>
+    public string Kind => IsOwner ? "owner" : IsBuiltIn ? "built_in" : "custom";
 
     /// <summary>The Owner role always has every permission, including ones added to the catalog later.</summary>
     public IReadOnlyList<string> EffectivePermissions => IsOwner ? Domain.Permissions.All : Permissions;
@@ -44,7 +44,7 @@ public sealed class Role
         UpdatedAt = now,
     };
 
-    public static Role Custom(Guid tenantId, string name, string description, IEnumerable<string> permissions, IEnumerable<Guid> siteIds, DateTimeOffset now) => new()
+    public static Role Custom(Guid tenantId, string name, string description, IEnumerable<string> permissions, DateTimeOffset now) => new()
     {
         Id = Guid.CreateVersion7(now),
         TenantId = tenantId,
@@ -52,7 +52,6 @@ public sealed class Role
         NormalizedName = Normalize(name),
         Description = description.Trim(),
         Permissions = Sorted(permissions),
-        SiteIds = siteIds.Distinct().ToList(),
         CreatedAt = now,
         UpdatedAt = now,
     };
@@ -72,14 +71,13 @@ public sealed class Role
         return null;
     }
 
-    public void Update(string name, string description, IEnumerable<string> permissions, IEnumerable<Guid> siteIds, DateTimeOffset now)
+    public void Update(string name, string description, IEnumerable<string> permissions, DateTimeOffset now)
     {
         if (CannotEditReason() is { } why) throw new InvalidOperationException(why);
         Name = name.Trim();
         NormalizedName = Normalize(name);
         Description = description.Trim();
         Permissions = Sorted(permissions);
-        SiteIds = siteIds.Distinct().ToList();
         UpdatedAt = now;
     }
 

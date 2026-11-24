@@ -68,7 +68,6 @@ namespace Inventra.Access.Data.Migrations
                     normalized_name = table.Column<string>(type: "character varying(60)", maxLength: 60, nullable: false),
                     description = table.Column<string>(type: "character varying(300)", maxLength: 300, nullable: false),
                     permissions = table.Column<List<string>>(type: "text[]", nullable: false),
-                    site_ids = table.Column<List<Guid>>(type: "uuid[]", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false)
@@ -196,7 +195,8 @@ namespace Inventra.Access.Data.Migrations
                 {
                     user_id = table.Column<Guid>(type: "uuid", nullable: false),
                     role_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    tenant_id = table.Column<Guid>(type: "uuid", nullable: false)
+                    tenant_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    site_ids = table.Column<List<Guid>>(type: "uuid[]", nullable: false)
                 },
                 constraints: table =>
                 {

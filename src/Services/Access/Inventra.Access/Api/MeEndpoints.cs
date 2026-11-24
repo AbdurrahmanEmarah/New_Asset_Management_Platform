@@ -25,7 +25,7 @@ public static class MeEndpoints
         new CompanyRef(caller.Client.TenantId, caller.Client.Name, caller.Client.Slug),
         caller.IsOwner,
         caller.IsOwner ? Permissions.All : caller.Permissions.Order(StringComparer.Ordinal).ToList(),
-        caller.Grants.Select(GrantResponse.From).ToList(),
+        caller.Grants.Select(MeRole.From).ToList(),
         caller.Pass is { } p ? new SupportSessionResponse(p.Id, p.Access, p.ExpiresAt) : null);
 
     internal static async Task<IResult> SetPreferences(PreferencesRequest request, Caller caller, AccessDbContext db, CancellationToken ct)
