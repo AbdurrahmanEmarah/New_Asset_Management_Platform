@@ -38,7 +38,7 @@ public static class InvitationEndpoints
             return (null, Problems.NotFound("This invitation link isn't valid. Ask your company's Admin to send you a new invitation."));
 
         var user = await db.Users.FirstAsync(u => u.Id == invitation.UserId, ct);
-        var client = await db.Clients.FirstAsync(ct);
+        var client = await db.Clients.SingleAsync(ct);
         return (new Found(invitation, user, client), null);
     }
 

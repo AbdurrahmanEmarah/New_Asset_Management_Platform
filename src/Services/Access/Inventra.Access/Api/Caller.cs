@@ -120,7 +120,7 @@ internal static class TenantGate
                 return Problems.Forbidden("Your sign-in isn't linked to a company yet. Open the invitation link you were sent to join your company.");
 
             await tenant.UseAsync(tenantId, ct);
-            var client = await db.Clients.AsNoTracking().FirstOrDefaultAsync(ct);
+            var client = await db.Clients.AsNoTracking().SingleOrDefaultAsync(ct);
             if (client is null)
                 return Problems.Forbidden("Your company's account isn't set up in Inventra yet. Try again in a minute; if it keeps happening, contact Inventra support.");
             if (client.CannotSignInReason() is { } suspended) return Problems.Forbidden(suspended);
@@ -151,17 +151,16 @@ internal static class TenantGate
             var now = clock.GetUtcNow();
             if (pass is null) return Problems.Forbidden("This support pass doesn't exist for that client. Request a new one.");
             if (pass.CannotUseReason(user.Id, now) is { } why) return Problems.Forbidden(why);
-            if (pass.Access == SupportAccess.Read && !HttpMethods.IsGet(http.Request.Method) && !HttpMethods.IsHead(http.Request.Method))
-                return Problems.Forbidden("This support pass is read-only. Ask the Platform Owner for a pass with change access.");
-
-            var client = await db.Clients.AsNoTracking().FirstAsync(ct);
+            var client = await db.Clients.AsNoTracking().SingleAsync(ct);
             caller.ForSupport(client, pass);
+            var refused = pass.Access == SupportAccess.Read && !HttpMethods.IsGet(http.Request.Method) && !HttpMethods.IsHead(http.Request.Method);
 
-            // Every request under a pass is recorded in the client's own audit log, reads included.
+            // Every request under a pass is recorded in the client's own audit log: reads, and refused attempts too.
             db.AuditEntries.Add(caller.Audit(AccessAuditActions.SupportRequest, "support_pass", pass.Id,
-                $"{http.Request.Method} {http.Request.Path}{http.Request.QueryString}", now));
+                $"{http.Request.Method} {http.Request.Path}{http.Request.QueryString}{(refused ? " (refused: read-only pass)" : "")}", now));
             await db.SaveChangesAsync(ct);
-            return null;
+
+            return refused ? Problems.Forbidden("This support pass is read-only. Ask the Platform Owner for a pass with change access.") : null;
         }
 
         return Problems.Forbidden("Sign in with your company account to continue.");

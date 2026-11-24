@@ -108,6 +108,6 @@ internal static class TenancyEvents
     public static async Task<ClientAccount> LoadAsync(Guid clientId, AccessDbContext db, ITenantContext tenant, CancellationToken ct)
     {
         await tenant.UseAsync(clientId, ct);
-        return await db.Clients.FirstOrDefaultAsync(ct) ?? throw new ClientNotProvisionedYetException(clientId);
+        return await db.Clients.SingleOrDefaultAsync(ct) ?? throw new ClientNotProvisionedYetException(clientId);
     }
 }

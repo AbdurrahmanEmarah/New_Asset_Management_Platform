@@ -3,7 +3,9 @@ using JasperFx.CodeGeneration.Model;
 using JasperFx.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+using Azure.Identity;
 using Wolverine;
+using Wolverine.AzureServiceBus;
 using Wolverine.EntityFrameworkCore;
 using Wolverine.ErrorHandling;
 using Wolverine.Postgresql;
@@ -19,6 +21,10 @@ namespace Inventra.BuildingBlocks.Messaging;
 /// <item>RabbitMQ when ConnectionStrings:rabbitmq is set (the AppHost sets it). Each service publishes
 /// its events to one fanout exchange, <c>inventra.&lt;service&gt;.events</c>, and reads the events it
 /// subscribes to from its own queue, <c>&lt;service&gt;.&lt;publisher&gt;-events</c>.</item>
+/// <item>Azure Service Bus when ServiceBus:FullyQualifiedNamespace is set (Azure), signed in with
+/// DefaultAzureCredential. Each service publishes to the topic <c>inventra.&lt;service&gt;.events</c> and reads
+/// from its own subscription, named after itself, on each topic it subscribes to. Topics and
+/// subscriptions are created by the infrastructure unless Messaging:AutoProvision is true.</item>
 /// <item>No broker (tests): events stay in the process, handled by local queues if this service has a handler.</item>
 /// </list>
 /// </summary>
@@ -48,6 +54,7 @@ public static class MessagingExtensions
         var database = builder.Configuration.GetConnectionString(databaseConnectionName)
             ?? throw new InvalidOperationException($"Connection string '{databaseConnectionName}' is missing. Set ConnectionStrings:{databaseConnectionName}.");
         var broker = builder.Configuration.GetConnectionString(BrokerConnectionName);
+        var serviceBus = builder.Configuration["ServiceBus:FullyQualifiedNamespace"];
 
         builder.UseWolverine(opts =>
         {
@@ -74,7 +81,23 @@ public static class MessagingExtensions
                 .Then.ScheduleRetry(30.Seconds(), 2.Minutes(), 10.Minutes())
                 .Then.MoveToErrorQueue();
 
-            if (!string.IsNullOrWhiteSpace(broker))
+            if (!string.IsNullOrWhiteSpace(serviceBus))
+            {
+                var bus = opts.UseAzureServiceBus(serviceBus, new DefaultAzureCredential());
+                if (builder.Configuration.GetValue("Messaging:AutoProvision", false)) bus.AutoProvision();
+
+                opts.Publish(p =>
+                {
+                    p.MessagesFromNamespace(publishesNamespaceOf.Namespace!);
+                    p.ToAzureServiceBusTopic(ExchangeFor(service));
+                });
+
+                foreach (var publisher in subscribesTo)
+                {
+                    opts.ListenToAzureServiceBusSubscription(service).FromTopic(ExchangeFor(publisher));
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(broker))
             {
                 var rabbit = opts.UseRabbitMq(new Uri(broker)).AutoProvision();
 

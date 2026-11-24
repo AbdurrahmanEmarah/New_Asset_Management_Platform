@@ -69,7 +69,7 @@ public static class PlatformEndpoints
     private static async Task<(ClientAccount? Client, IResult? Problem)> EnterAsync(Guid clientId, AccessDbContext db, ITenantContext tenant, CancellationToken ct)
     {
         await tenant.UseAsync(clientId, ct);
-        var client = await db.Clients.AsNoTracking().FirstOrDefaultAsync(ct);
+        var client = await db.Clients.AsNoTracking().SingleOrDefaultAsync(ct);
         return client is null
             ? (null, Problems.NotFound("Access hasn't set up this client yet. If it was just created, wait a few seconds and try again."))
             : (client, null);
