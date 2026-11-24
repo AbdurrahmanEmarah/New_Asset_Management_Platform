@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Inventra.Contracts</RootNamespace>
+    <Description>Messages that services publish to each other. No dependencies, so any service can reference it.</Description>
+  </PropertyGroup>
+</Project>

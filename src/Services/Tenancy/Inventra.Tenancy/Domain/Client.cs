@@ -97,10 +97,22 @@ public sealed class Client
         TrialEndsAt = null;
     }
 
+    /// <summary>When Access last counted this client's seats. Older reports are ignored.</summary>
+    public DateTimeOffset? UsersCountedAt { get; private set; }
+
     internal void SetUsage(int users, int assets, long storageMb)
     {
         UsersUsed = users;
         AssetsUsed = assets;
         StorageUsedMb = storageMb;
+    }
+
+    /// <summary>Applies a seat count from Access unless a newer one was already applied. True when applied.</summary>
+    public bool ApplyUserCount(int seats, DateTimeOffset countedAt)
+    {
+        if (UsersCountedAt is { } last && last >= countedAt) return false;
+        UsersUsed = Math.Max(0, seats);
+        UsersCountedAt = countedAt;
+        return true;
     }
 }

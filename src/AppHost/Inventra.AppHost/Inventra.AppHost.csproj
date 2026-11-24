@@ -10,9 +10,11 @@
     <PackageReference Include="Aspire.Hosting.PostgreSQL" />
     <PackageReference Include="Aspire.Hosting.Keycloak" />
     <PackageReference Include="Aspire.Hosting.JavaScript" />
+    <PackageReference Include="Aspire.Hosting.RabbitMQ" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Gateway\Inventra.Gateway\Inventra.Gateway.csproj" />
     <ProjectReference Include="..\..\Services\Tenancy\Inventra.Tenancy\Inventra.Tenancy.csproj" />
+    <ProjectReference Include="..\..\Services\Access\Inventra.Access\Inventra.Access.csproj" />
   </ItemGroup>
 </Project>

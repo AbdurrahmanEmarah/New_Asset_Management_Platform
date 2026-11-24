@@ -16,6 +16,14 @@ public static class Problems
 
     public static IResult NotFound(string detail) =>
         TypedResults.Problem(detail: detail, statusCode: StatusCodes.Status404NotFound, title: "Not found.");
+
+    /// <summary>403: signed in, but not allowed. Say who can grant the access.</summary>
+    public static IResult Forbidden(string detail) =>
+        TypedResults.Problem(detail: detail, statusCode: StatusCodes.Status403Forbidden, title: "You can't do that.");
+
+    /// <summary>503: a service this request depends on is unavailable. Say whether to retry.</summary>
+    public static IResult Unavailable(string detail) =>
+        TypedResults.Problem(detail: detail, statusCode: StatusCodes.Status503ServiceUnavailable, title: "Please try again shortly.");
 }
 
 /// <summary>Collects field errors and turns them into a validation problem.</summary>

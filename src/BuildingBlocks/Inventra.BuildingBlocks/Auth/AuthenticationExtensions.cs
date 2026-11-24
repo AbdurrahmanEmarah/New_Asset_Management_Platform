@@ -50,7 +50,10 @@ public static class AuthenticationExtensions
                 .RequireRole(PlatformRoles.Owner))
             .AddPolicy(PlatformPolicies.ManageBilling, p => p.RequireAuthenticatedUser()
                 .RequireClaim(InventraClaims.Realm, InventraClaims.PlatformRealm)
-                .RequireRole(PlatformRoles.Owner, PlatformRoles.Billing));
+                .RequireRole(PlatformRoles.Owner, PlatformRoles.Billing))
+            .AddPolicy(PlatformPolicies.RequestSupportAccess, p => p.RequireAuthenticatedUser()
+                .RequireClaim(InventraClaims.Realm, InventraClaims.PlatformRealm)
+                .RequireRole(PlatformRoles.Owner, PlatformRoles.Support));
 
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();

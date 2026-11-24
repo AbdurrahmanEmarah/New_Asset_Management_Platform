@@ -2,12 +2,16 @@
   <Folder Name="/src/">
     <Project Path="src/AppHost/Inventra.AppHost/Inventra.AppHost.csproj" />
     <Project Path="src/BuildingBlocks/Inventra.BuildingBlocks/Inventra.BuildingBlocks.csproj" />
+    <Project Path="src/BuildingBlocks/Inventra.BuildingBlocks.Messaging/Inventra.BuildingBlocks.Messaging.csproj" />
+    <Project Path="src/BuildingBlocks/Inventra.Contracts/Inventra.Contracts.csproj" />
     <Project Path="src/Gateway/Inventra.Gateway/Inventra.Gateway.csproj" />
   </Folder>
   <Folder Name="/src/Services/">
+    <Project Path="src/Services/Access/Inventra.Access/Inventra.Access.csproj" />
     <Project Path="src/Services/Tenancy/Inventra.Tenancy/Inventra.Tenancy.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Inventra.Access.Tests/Inventra.Access.Tests.csproj" />
     <Project Path="tests/Inventra.BuildingBlocks.Tests/Inventra.BuildingBlocks.Tests.csproj" />
     <Project Path="tests/Inventra.Tenancy.Tests/Inventra.Tenancy.Tests.csproj" />
     <Project Path="tests/Inventra.Testing/Inventra.Testing.csproj" />

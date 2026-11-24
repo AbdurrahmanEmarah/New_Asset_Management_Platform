@@ -97,6 +97,10 @@ namespace Inventra.Tenancy.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("trial_ends_at");
 
+                    b.Property<DateTimeOffset?>("UsersCountedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("users_counted_at");
+
                     b.Property<int>("UsersUsed")
                         .HasColumnType("integer")
                         .HasColumnName("users_used");
