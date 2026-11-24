@@ -112,6 +112,10 @@ export function createDemoAccessApi(options: DemoOptions = {}): AccessApi {
   let nextId = 1;
 
   const roleName = (id: string) => roles.find((r) => r.id === id)?.name ?? id;
+  const assigned = (a: AssignmentInput) => {
+    const r = roles.find((x) => x.id === a.roleId)!;
+    return { id: r.id, name: r.name, kind: r.kind, allSites: a.siteIds.length === 0, siteIds: [...a.siteIds] };
+  };
   const hasRole = (u: StoredUser, roleId: string) => u.roles.some((a) => a.roleId === roleId);
   const activeOwners = () => users.filter((u) => u.status === 'active' && hasRole(u, 'owner'));
   const seatsUsed = () => users.filter((u) => u.status !== 'deactivated').length;
@@ -135,7 +139,7 @@ export function createDemoAccessApi(options: DemoOptions = {}): AccessApi {
 
   const toUser = (u: StoredUser): User => ({
     ...clone(u), isOwner: isOwner(u),
-    roles: u.roles.map((a) => ({ id: a.roleId, name: roleName(a.roleId), siteIds: [...a.siteIds] })),
+    roles: u.roles.map(assigned),
     cannotDeactivateReason: deactivateReason(u), cannotChangeRolesReason: changeRolesReason(u),
   });
 
@@ -157,6 +161,8 @@ export function createDemoAccessApi(options: DemoOptions = {}): AccessApi {
 
   function checkAssignments(list: AssignmentInput[]) {
     if (list.length === 0) throw invalid({ roles: ['Choose at least one role.'] });
+    if (new Set(list.map((a) => a.roleId)).size !== list.length) throw invalid({ roles: ['Choose each role only once.'] });
+    if (list.some((a) => a.roleId === 'owner' && a.siteIds.length > 0)) throw invalid({ roles: ['The Owner role always applies at every site. Remove the sites from it.'] });
     if (list.some((a) => a.roleId === 'owner') && !isOwner(me())) throw new ApiError(403, 'Only an Owner can make someone else an Owner.');
   }
 
@@ -184,12 +190,9 @@ export function createDemoAccessApi(options: DemoOptions = {}): AccessApi {
   async function buildMe(): Promise<AccessMe> {
     const u = me();
     const removed = new Set(options.withoutPermissions ?? []);
-    const grants = u.roles.map((a) => {
-      const r = roles.find((x) => x.id === a.roleId)!;
-      return { roleId: r.id, roleName: r.name, permissions: [...r.permissions], allSites: a.siteIds.length === 0, siteIds: [...a.siteIds] };
-    });
-    const permissions = [...new Set(grants.flatMap((g) => g.permissions))].filter((p) => !removed.has(p));
-    return { userId: u.id, name: u.name, email: u.email, theme, company: { id: 'c1', name: 'Gulf Facilities Co.', slug: 'gulf-fm' }, isOwner: isOwner(u), permissions, grants, supportSession: null };
+    const mine = u.roles.map((a) => ({ ...assigned(a), permissions: [...roles.find((x) => x.id === a.roleId)!.permissions] }));
+    const permissions = [...new Set(mine.flatMap((g) => g.permissions))].filter((p) => !removed.has(p));
+    return { userId: u.id, name: u.name, email: u.email, theme, company: { id: 'c1', name: 'Gulf Facilities Co.', slug: 'gulf-fm' }, isOwner: isOwner(u), permissions, roles: mine, supportSession: null };
   }
 
   return {

@@ -296,7 +296,7 @@ function RoleMembers({ role, sites }: { role: Role; sites: Site[] }) {
             return (
               <li key={u.id}>
                 <span style={{ fontWeight: 600 }}>{u.name}</span>
-                <span className="muted">{siteNames(sites, mine?.siteIds ?? [])}</span>
+                <span className="muted">{siteNames(sites, mine?.siteIds ?? [], mine?.allSites ?? true)}</span>
               </li>
             );
           })}

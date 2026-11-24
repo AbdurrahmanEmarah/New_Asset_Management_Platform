@@ -42,7 +42,7 @@ export function SiteChips({ sites, value, onChange, label, disabledReason }: Sit
   );
 }
 
-export function siteNames(sites: Site[], ids: string[]): string {
-  if (ids.length === 0) return 'All sites';
+export function siteNames(sites: Site[], ids: string[], allSites = ids.length === 0): string {
+  if (allSites) return 'All sites';
   return ids.map((id) => sites.find((s) => s.id === id)?.name ?? 'Unknown site').join(', ');
 }

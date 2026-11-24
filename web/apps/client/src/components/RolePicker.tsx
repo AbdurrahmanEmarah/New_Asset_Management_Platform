@@ -4,6 +4,11 @@ import { SiteChips } from './SiteChips';
 
 export interface RoleChoice { roleIds: string[]; siteIds: string[] }
 
+/** One assignment per chosen role, each with the site choice; the Owner role always gets every site. */
+export function toAssignments(choice: RoleChoice, roles: Role[]): { roleId: string; siteIds: string[] }[] {
+  return choice.roleIds.map((roleId) => ({ roleId, siteIds: roles.find((r) => r.id === roleId)?.kind === 'owner' ? [] : choice.siteIds }));
+}
+
 export const OWNER_ONLY = 'Only an Owner can make someone else an Owner.';
 
 /** Roles (one or more) plus one site choice that applies to each chosen role. */
@@ -48,6 +53,7 @@ export function RolePicker({ roles, sites, value, onChange, error }: {
           onChange={(siteIds) => onChange({ ...value, siteIds })} />
         <span className="field-hint">
           {value.siteIds.length === 0 ? 'Their roles apply at every site.' : 'Their roles apply only at these sites. Assets and work orders elsewhere are hidden from them.'}
+          {value.siteIds.length > 0 && roles.some((r) => r.kind === 'owner' && value.roleIds.includes(r.id)) ? ' The Owner role always applies at every site.' : ''}
         </span>
       </div>
     </>

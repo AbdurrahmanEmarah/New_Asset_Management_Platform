@@ -4,7 +4,7 @@ import { errorText } from '../../../../shared/errors';
 import { Button, CopyLink, Dialog, Notice } from '../../../../shared/ui';
 import type { InvitationLink, Role, Site, User } from '../api/access';
 import { useApi } from '../api/context';
-import { RolePicker, type RoleChoice } from '../components/RolePicker';
+import { RolePicker, toAssignments, type RoleChoice } from '../components/RolePicker';
 
 const day = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
@@ -49,7 +49,8 @@ export function ConfirmDialog({ title, description, action, danger, onClose, run
 }
 
 function initialChoice(user: User): RoleChoice {
-  return { roleIds: user.roles.map((r) => r.id), siteIds: user.roles[0]?.siteIds ?? [] };
+  const scoped = user.roles.find((r) => r.kind !== 'owner');
+  return { roleIds: user.roles.map((r) => r.id), siteIds: scoped && !scoped.allSites ? scoped.siteIds : [] };
 }
 
 export function ChangeRolesDialog({ user, roles, sites, onClose, onDone }: { user: User; roles: Role[]; sites: Site[]; onClose: () => void; onDone: (u: User) => void }) {
@@ -58,7 +59,8 @@ export function ChangeRolesDialog({ user, roles, sites, onClose, onDone }: { use
   const [error, setError] = useState<string | undefined>();
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const mixed = user.roles.some((r) => r.siteIds.join() !== (user.roles[0]?.siteIds ?? []).join());
+  const scoped = user.roles.filter((r) => r.kind !== 'owner');
+  const mixed = scoped.some((r) => r.siteIds.join() !== (scoped[0]?.siteIds ?? []).join());
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -69,7 +71,7 @@ export function ChangeRolesDialog({ user, roles, sites, onClose, onDone }: { use
     setBusy(true);
     setFormError(null);
     try {
-      onDone(await api.setRoles(user.id, choice.roleIds.map((roleId) => ({ roleId, siteIds: choice.siteIds }))));
+      onDone(await api.setRoles(user.id, toAssignments(choice, roles)));
     } catch (err) {
       if (err instanceof ApiError && err.field('roles')) setError(err.field('roles'));
       else setFormError(errorText(err, 'Their roles could not be changed.'));

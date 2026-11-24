@@ -97,7 +97,7 @@ function UserMenu({ onSignOut }: { onSignOut: () => void }) {
     };
   }, [open]);
 
-  const roles = me.supportSession ? 'Platform support' : me.grants.map((g) => g.roleName).join(', ') || 'No role yet';
+  const roles = me.supportSession ? 'Platform support' : me.roles.map((r) => r.name).join(', ') || 'No role yet';
 
   return (
     <div className="usermenu" ref={ref}>

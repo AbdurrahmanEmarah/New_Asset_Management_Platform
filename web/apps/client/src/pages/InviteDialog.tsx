@@ -4,7 +4,7 @@ import { errorText, isEmail } from '../../../../shared/errors';
 import { Button, Dialog, Field, Notice } from '../../../../shared/ui';
 import type { InvitationLink, Role, Site } from '../api/access';
 import { useApi } from '../api/context';
-import { RolePicker, type RoleChoice } from '../components/RolePicker';
+import { RolePicker, toAssignments, type RoleChoice } from '../components/RolePicker';
 
 type Errors = Partial<Record<'email' | 'name' | 'roles', string>>;
 
@@ -33,10 +33,10 @@ export function InviteDialog({ roles, sites, onClose, onInvited }: { roles: Role
     if (Object.keys(found).length) return;
     setBusy(true);
     try {
-      onInvited(await api.invite({ email: email.trim(), name: name.trim(), roles: choice.roleIds.map((roleId) => ({ roleId, siteIds: choice.siteIds })) }));
+      onInvited(await api.invite({ email: email.trim(), name: name.trim(), roles: toAssignments(choice, roles) }));
     } catch (err) {
       if (err instanceof ApiError && Object.keys(err.fieldErrors).length) {
-        setErrors({ email: err.field('email'), name: err.field('name'), roles: err.field('roles') ?? err.field('roleIds') });
+        setErrors({ email: err.field('email'), name: err.field('name'), roles: err.field('roles') });
       } else {
         setFormError(errorText(err, 'The invitation could not be made.'));
       }

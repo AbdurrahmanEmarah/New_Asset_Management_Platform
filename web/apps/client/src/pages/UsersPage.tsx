@@ -161,7 +161,7 @@ export function UsersPage() {
                       </td>
                       <td>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-                          {u.roles.map((r) => <span key={r.id} className="role-chip">{r.name} · {siteNames(sites, r.siteIds)}</span>)}
+                          {u.roles.map((r) => <span key={r.id} className="role-chip">{r.name} · {siteNames(sites, r.siteIds, r.allSites)}</span>)}
                         </div>
                       </td>
                       <td>

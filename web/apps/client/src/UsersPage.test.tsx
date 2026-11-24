@@ -118,6 +118,22 @@ describe('Settings › Users', () => {
     expect(await screen.findByText("Yusuf Rahman's roles are saved.")).toBeInTheDocument();
   });
 
+  it('always gives the Owner role every site', async () => {
+    const { api } = renderWorkspace('/settings/users');
+    await userEvent.click(await screen.findByRole('button', { name: /Invite people/ }));
+    const dialog = screen.getByRole('dialog', { name: 'Invite people' });
+    await userEvent.type(within(dialog).getByLabelText(/Name/), 'Rami Haddad');
+    await userEvent.type(within(dialog).getByLabelText(/Email/), 'rami@gulf-fm.example');
+    await userEvent.click(await within(dialog).findByRole('checkbox', { name: /^Owner/ }));
+    await userEvent.click(within(dialog).getByRole('checkbox', { name: /Technician/ }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Tower B' }));
+    expect(within(dialog).getByText(/The Owner role always applies at every site/)).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Create invitation' }));
+    expect(api.invite).toHaveBeenCalledWith(expect.objectContaining({
+      roles: [{ roleId: 'owner', siteIds: [] }, { roleId: 'tech', siteIds: ['tower-b'] }],
+    }));
+  });
+
   it('only lets an Owner make someone an Owner', async () => {
     renderWorkspace('/settings/users', { meId: 'u-omar' });
     await userEvent.click(await screen.findByRole('button', { name: /Invite people/ }));

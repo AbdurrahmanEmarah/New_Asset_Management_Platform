@@ -3,10 +3,9 @@
  * Source of truth: docs/contracts/access.openapi.json (Backend, branch claude/backend-access).
  * Every route goes through the gateway at /api/access.
  *
- * One deliberate difference from the first published contract, decided by the Lead:
- * site scope lives on each person's role ASSIGNMENT, never on the role. So roles have no
- * siteIds/allSites, users carry roles [{ id, name, siteIds }], and invites and role changes
- * send roles [{ roleId, siteIds }]. Backend is moving the contract to this shape.
+ * Site scope lives on each person's role ASSIGNMENT, never on the role: users carry
+ * roles [{ id, name, kind, allSites, siteIds }], and invites and role changes send
+ * roles [{ roleId, siteIds }] (field errors come under "roles").
  */
 import { createHttp, type TokenSource } from '../../../../shared/api/http';
 import type { ThemeMode } from '../../../../shared/theme/theme';
@@ -14,11 +13,12 @@ import type { StatusKind, UsageState } from '../../../../shared/ui';
 
 export interface Ref { id: string; name: string }
 
-/** A role given to a person, with the sites it applies at for them. Empty siteIds = all sites. */
-export interface RoleAssignment extends Ref { siteIds: string[] }
+/** A role given to a person, with the sites it applies at for them. */
+export interface RoleAssignment extends Ref { kind: RoleKind; allSites: boolean; siteIds: string[] }
+/** Empty siteIds = all sites. The Owner role always applies at all sites. */
 export interface AssignmentInput { roleId: string; siteIds: string[] }
 
-export interface Grant { roleId: string; roleName: string; permissions: string[]; allSites: boolean; siteIds: string[] }
+export interface MeRole extends RoleAssignment { permissions: string[] }
 export type SupportAccess = 'read' | 'change';
 
 export interface AccessMe {
@@ -30,7 +30,7 @@ export interface AccessMe {
   isOwner: boolean;
   /** Effective permission keys, `area.action`. */
   permissions: string[];
-  grants: Grant[];
+  roles: MeRole[];
   /** Set when platform support staff are inside this company on a support pass. */
   supportSession: { passId: string; access: SupportAccess; expiresAt: string } | null;
 }
