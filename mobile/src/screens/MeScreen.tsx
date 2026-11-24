@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useAuth } from '@/auth/AuthProvider';
 import { describeChange } from '@/jobs/jobs';
 import { useOffline } from '@/offline/OfflineProvider';
+import type { ThemeMode } from '@/theme/theme';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Button } from '@/ui/Button';
 import { Screen } from '@/ui/Screen';
@@ -10,7 +12,15 @@ import { ThemeSwitch } from '@/ui/ThemeSwitch';
 
 export function MeScreen() {
   const { colors } = useTheme();
-  const { session, signOut } = useAuth();
+  const { session, signOut, access } = useAuth();
+  const [themeNote, setThemeNote] = useState<string | null>(null);
+  const saveTheme = (mode: ThemeMode) => {
+    if (!access) return;
+    setThemeNote(null);
+    access.savePreferences(mode).catch((error: unknown) =>
+      setThemeNote(`Saved on this phone only. ${error instanceof Error ? error.message : String(error)}`),
+    );
+  };
   const { state, sendNow } = useOffline();
   const user = session.status === 'signed-in' ? session.user : null;
   const waiting = state.pending.length;
@@ -24,6 +34,9 @@ export function MeScreen() {
         <View style={[styles.card, { borderColor: colors.line, backgroundColor: colors.surface }]}>
           <Text variant="strong">{user?.name ?? 'Signed in'}</Text>
           {user?.email ? <Text color="muted">{user.email}</Text> : null}
+          {session.status === 'signed-in' && session.me ? (
+            <Text color="muted">{session.me.company.name}</Text>
+          ) : null}
           {session.status === 'signed-in' && session.demo ? (
             <Text variant="small" color="muted">
               Using sample data. Nothing is sent to a real server.
@@ -35,7 +48,12 @@ export function MeScreen() {
           <Text variant="label" color="muted">
             THEME
           </Text>
-          <ThemeSwitch />
+          <ThemeSwitch onChange={saveTheme} />
+          {themeNote ? (
+            <Text variant="small" accessibilityRole="alert" style={{ color: colors.warn }}>
+              {themeNote}
+            </Text>
+          ) : null}
         </View>
 
         <View style={styles.section}>

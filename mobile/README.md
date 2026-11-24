@@ -46,6 +46,7 @@ The app signs in to the Keycloak realm `inventra` with the code flow and PKCE (n
    |---|---|
    | `EXPO_PUBLIC_AUTH_ISSUER` | `http://localhost:18080/realms/inventra` |
    | `EXPO_PUBLIC_AUTH_CLIENT_ID` | `field-app` |
+   | `EXPO_PUBLIC_API_URL` | The gateway's http address from the Aspire dashboard, e.g. `http://localhost:5200` |
 
 2. Restart `npx.cmd expo start` (Expo reads these when it starts).
 
@@ -54,6 +55,10 @@ The `field-app` client in Keycloak must be a **public** client with **Standard f
 - `http://localhost:8081/*` (web)
 - `inventra-field://*` (development builds)
 - `exp://*` (Expo Go)
+
+After sign-in the app calls `GET /api/access/me`. If the server answers 403, its reason is shown on the sign-in screen as written. Changing the theme on **Me** also saves it to your account (`PUT /api/access/me/preferences`).
+
+For the web build the gateway must allow the origin `http://localhost:8081` (CORS).
 
 On a phone, `localhost` means the phone itself: use the PC's IP address in `EXPO_PUBLIC_AUTH_ISSUER` (for example `http://192.168.1.20:18080/realms/inventra`).
 

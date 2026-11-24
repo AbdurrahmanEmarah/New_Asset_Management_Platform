@@ -1,11 +1,11 @@
 import { Pressable, StyleSheet, View } from 'react-native';
-import { THEME_MODES } from '@/theme/theme';
+import { THEME_MODES, type ThemeMode } from '@/theme/theme';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radiusLg, touchTarget } from '@/theme/tokens';
 import { Text } from './Text';
 
 /** System / Light / Dark. The choice is remembered on this device. */
-export function ThemeSwitch() {
+export function ThemeSwitch({ onChange }: { onChange?: (mode: ThemeMode) => void }) {
   const { mode, setMode, colors } = useTheme();
   return (
     <View accessibilityRole="radiogroup" accessibilityLabel="Theme" style={[styles.group, { borderColor: colors.line }]}>
@@ -17,7 +17,10 @@ export function ThemeSwitch() {
             accessibilityRole="radio"
             accessibilityState={{ checked: on }}
             accessibilityLabel={m.label}
-            onPress={() => setMode(m.value)}
+            onPress={() => {
+              setMode(m.value);
+              onChange?.(m.value);
+            }}
             style={[styles.option, on && { backgroundColor: colors.action }]}
           >
             <Text variant="strong" style={{ color: on ? colors.onAction : colors.text }}>

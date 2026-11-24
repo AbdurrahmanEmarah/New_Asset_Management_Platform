@@ -1,6 +1,9 @@
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createAccessApi, type AccessApi, type Me } from '@/api/access';
+import { isThemeMode } from '@/theme/theme';
+import { useTheme } from '@/theme/ThemeProvider';
 import { readAuthConfig, type AuthConfig } from './config';
 
 // On the web, sign-in opens a pop-up; this closes it and hands the result back.
@@ -13,7 +16,7 @@ export type User = { name: string; email?: string };
 export type Session =
   | { status: 'signed-out'; error?: string }
   | { status: 'signing-in' }
-  | { status: 'signed-in'; user: User; accessToken: string; demo: boolean };
+  | { status: 'signed-in'; user: User; accessToken: string; demo: boolean; me?: Me };
 
 type AuthValue = {
   session: Session;
@@ -24,6 +27,8 @@ type AuthValue = {
   /** Development only: use the sample data without a Keycloak realm. */
   signInDemo: (() => void) | null;
   signOut: () => void;
+  /** The Access service for the signed-in person; null in demo mode or when signed out. */
+  access: AccessApi | null;
 };
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -48,6 +53,7 @@ function NoAuth({ children, config }: { children: ReactNode; config: Extract<Aut
       signIn: () => setSession({ status: 'signed-out', error: config.message }),
       signInDemo: __DEV__ ? () => setSession(demoSession) : null,
       signOut: () => setSession({ status: 'signed-out' }),
+      access: null,
     }),
     [session, config],
   );
@@ -68,6 +74,12 @@ function KeycloakAuth({ children, config }: { children: ReactNode; config: Extra
     discovery,
   );
   const [session, setSession] = useState<Session>({ status: 'signed-out' });
+  const { setMode } = useTheme();
+  const access = useMemo(() => {
+    if (session.status !== 'signed-in' || session.demo) return null;
+    const accessToken = session.accessToken;
+    return createAccessApi(config.apiUrl, () => accessToken);
+  }, [session, config.apiUrl]);
   // A code can be redeemed once; StrictMode runs effects twice in development.
   const redeemed = useRef<string | null>(null);
 
@@ -81,8 +93,15 @@ function KeycloakAuth({ children, config }: { children: ReactNode; config: Extra
         { clientId: config.clientId, code, redirectUri, extraParams: { code_verifier: request.codeVerifier ?? '' } },
         discovery,
       ).then(
-        (tokens) =>
-          setSession({ status: 'signed-in', user: userFromIdToken(tokens.idToken), accessToken: tokens.accessToken, demo: false }),
+        async (tokens) => {
+          const result = await loadMe(
+            createAccessApi(config.apiUrl, () => tokens.accessToken),
+            tokens.accessToken,
+            tokens.idToken,
+          );
+          if (result.status === 'signed-in' && result.me && isThemeMode(result.me.theme)) setMode(result.me.theme);
+          setSession(result);
+        },
         (error: unknown) =>
           setSession({
             status: 'signed-out',
@@ -95,7 +114,7 @@ function KeycloakAuth({ children, config }: { children: ReactNode; config: Extra
     } else if (response.type === 'cancel' || response.type === 'dismiss') {
       queueMicrotask(() => setSession({ status: 'signed-out' }));
     }
-  }, [response, discovery, request, redirectUri, config.clientId]);
+  }, [response, discovery, request, redirectUri, config.clientId, config.apiUrl, setMode]);
 
   const cannotSignInReason = !discovery
     ? `Can't reach the sign-in server at ${config.issuer}. Check that it is running and this device can reach it.`
@@ -123,11 +142,26 @@ function KeycloakAuth({ children, config }: { children: ReactNode; config: Extra
         redeemed.current = null;
         setSession({ status: 'signed-out' });
       },
+      access,
     }),
-    [session, config, cannotSignInReason, promptAsync],
+    [session, config, cannotSignInReason, promptAsync, access],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+/**
+ * After the token exchange: asks the Access service who this is (GET /api/access/me).
+ * A 403 carries a sentence saying why the person can't use the app; it is shown as-is.
+ */
+export async function loadMe(access: AccessApi, accessToken: string, idToken?: string): Promise<Session> {
+  try {
+    const me = await access.me();
+    return { status: 'signed-in', user: { name: me.name, email: me.email ?? undefined }, accessToken, demo: false, me };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { status: 'signed-out', error: message || `Signed in as ${userFromIdToken(idToken).name}, but could not load your account. Try again.` };
+  }
 }
 
 /** Reads the name from the ID token. It was just received from the token endpoint, so it is not re-verified here. */

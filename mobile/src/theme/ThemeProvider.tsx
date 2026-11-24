@@ -7,7 +7,8 @@ type ThemeValue = {
   mode: ThemeMode;
   resolved: ResolvedTheme;
   colors: ColorTokens;
-  setMode: (mode: ThemeMode) => void;
+  /** Changes the theme. It is remembered on this device unless `save` is false. */
+  setMode: (mode: ThemeMode, options?: { save?: boolean }) => void;
 };
 
 const ThemeContext = createContext<ThemeValue | null>(null);
@@ -34,10 +35,10 @@ export function ThemeProvider({ children, initialMode }: { children: ReactNode; 
       mode,
       resolved,
       colors: resolved === 'dark' ? dark : light,
-      setMode: (next) => {
+      setMode: (next, options) => {
         setChosen(true);
         setModeState(next);
-        void storeMode(next);
+        if (options?.save !== false) void storeMode(next);
       },
     };
   }, [mode, systemScheme]);
