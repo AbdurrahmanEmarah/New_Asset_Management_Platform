@@ -9,7 +9,7 @@ import { readAuthConfig, type AuthConfig } from './config';
 // On the web, sign-in opens a pop-up; this closes it and hands the result back.
 WebBrowser.maybeCompleteAuthSession();
 
-export const REDIRECT_PATH = 'auth';
+export const REDIRECT_PATH = 'auth/callback';
 
 export type User = { name: string; email?: string };
 
@@ -62,7 +62,7 @@ function NoAuth({ children, config }: { children: ReactNode; config: Extract<Aut
 
 function KeycloakAuth({ children, config }: { children: ReactNode; config: Extract<AuthConfig, { ok: true }> }) {
   const discovery = AuthSession.useAutoDiscovery(config.issuer);
-  const redirectUri = AuthSession.makeRedirectUri({ scheme: 'inventra-field', path: REDIRECT_PATH });
+  const redirectUri = AuthSession.makeRedirectUri({ scheme: 'inventra', path: REDIRECT_PATH });
   const [request, response, promptAsync] = AuthSession.useAuthRequest(
     {
       clientId: config.clientId,

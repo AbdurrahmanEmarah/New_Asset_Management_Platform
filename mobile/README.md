@@ -53,8 +53,9 @@ The app signs in to the Keycloak realm `inventra` with the code flow and PKCE (n
 The `field-app` client in Keycloak must be a **public** client with **Standard flow** on and these valid redirect URIs:
 
 - `http://localhost:8081/*` (web)
-- `inventra-field://*` (development builds)
-- `exp://*` (Expo Go)
+- `inventra://auth/callback` (development and store builds)
+
+Expo Go can't use the `inventra://` address, so on a phone in Expo Go sign-in needs an extra redirect (`exp://<PC IP>:8081/--/auth/callback`) added to the client; the web build needs nothing extra.
 
 After sign-in the app calls `GET /api/access/me`. If the server answers 403, its reason is shown on the sign-in screen as written. Changing the theme on **Me** also saves it to your account (`PUT /api/access/me/preferences`).
 

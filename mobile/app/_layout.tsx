@@ -52,7 +52,7 @@ function RootStack() {
         <Stack.Protected guard={!signedIn}>
           <Stack.Screen name="sign-in" />
         </Stack.Protected>
-        <Stack.Screen name="auth" />
+        <Stack.Screen name="auth/callback" />
       </Stack>
     </>
   );

@@ -3,7 +3,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import { Screen } from '@/ui/Screen';
 import { Loading } from '@/ui/States';
 
-/** Where Keycloak sends the browser back to (inventra-field://auth, or /auth on the web). */
+/** Where Keycloak sends the browser back to (inventra://auth/callback, or /auth/callback on the web). */
 export default function AuthCallback() {
   const { session } = useAuth();
   if (session.status === 'signed-in') return <Redirect href="/" />;
