@@ -24,6 +24,11 @@ const JOIN_TITLE = 'Join your company on Inventra';
 const isJoin = () => window.location.pathname === JOIN_PATH;
 
 export function App() {
+  // Subscribing to the sign-in state makes App render again when sign-in finishes. The callback
+  // moves the address from /auth/callback back to /join with history.replaceState, which React
+  // doesn't notice on its own; without this, an invitee who just signed in landed in the
+  // workspace ("not linked to a company") instead of on the Join step.
+  useAuth();
   if (isJoin()) return <JoinRoute />;
   return (
     <AuthGate title={TITLE} signInHint="Sign in with the account your company gave you. Platform staff use the admin console instead.">
