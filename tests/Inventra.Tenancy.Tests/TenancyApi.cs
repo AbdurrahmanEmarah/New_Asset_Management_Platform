@@ -19,12 +19,14 @@ public sealed class TenancyApi : IAsyncLifetime
             b.UseEnvironment("Testing");
             b.UseSetting("ConnectionStrings:tenancydb", _db.ConnectionString);
             b.UseSetting("Database:MigrateOnStartup", "true");
-            b.ConfigureTestServices(s => s.AddTestAuthentication());
+            b.ConfigureTestServices(s => s.AddTestAuthentication().AddTestMessaging());
         });
         _ = _factory.Server; // start now so migrations run once
     }
 
     public HttpClient Client(TestUser? user) => _factory!.CreateClient().As(user);
+
+    public IServiceProvider Services => _factory!.Services;
 
     public async ValueTask DisposeAsync()
     {

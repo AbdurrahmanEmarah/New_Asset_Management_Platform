@@ -31,4 +31,9 @@ public static class AuditActions
     public const string ClientSuspended = "client.suspended";
     public const string ClientReactivated = "client.reactivated";
     public const string PlanChanged = "client.plan_changed";
+
+    /// <summary>Recorded by Access: a support pass was requested or ended, or the Owner invitation reissued.</summary>
+    public const string SupportPassStarted = "support.pass_started";
+    public const string SupportPassEnded = "support.pass_ended";
+    public const string OwnerInvitationReissued = "client.owner_invitation_reissued";
 }
