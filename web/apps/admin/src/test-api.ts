@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import type { SupportApi, SupportSession } from './api/support';
+import type { StartedSupportPass, SupportApi, SupportPass } from './api/support';
 import type { Client, Me, Plan, TenancyApi } from './api/tenancy';
 
 export const OWNER: Me = { id: 'o1', name: 'Platform Owner', email: 'owner@inventra.local', roles: ['platform-owner'], canManageClients: true, canManageBilling: true };
@@ -39,20 +39,25 @@ export function fakeApi(overrides: Partial<TenancyApi> = {}): TenancyApi {
 
 export const BILLING: Me = { id: 'b1', name: 'Billing Clerk', email: 'billing@inventra.local', roles: ['platform-billing'], canManageClients: false, canManageBilling: true };
 
-export function session(overrides: Partial<SupportSession> = {}): SupportSession {
+export function pass(overrides: Partial<SupportPass> = {}): SupportPass {
   return {
-    id: 's1', clientId: 'c1', clientName: 'Gulf Facilities Co.', requestedByName: 'Support Agent',
-    reason: 'Ticket #4182: imported assets are missing their location.', access: 'read', durationMinutes: 60, status: 'active',
-    requestedAt: '2026-11-24T09:00:00Z', startedAt: '2026-11-24T09:00:00Z', endsAt: '2026-11-24T10:00:00Z', endedAt: null, cannotEndReason: null,
+    id: 'p1', clientId: 'c1', requestedByName: 'Support Agent', reason: 'Ticket #4182: imported assets are missing their location.',
+    access: 'read', status: 'active', startedAt: '2026-11-24T09:00:00Z', expiresAt: '2026-11-24T10:00:00Z', endedAt: null, endedByName: null, actionCount: 2,
     ...overrides,
   };
 }
 
+export function started(overrides: Partial<SupportPass> = {}): StartedSupportPass {
+  return { pass: pass(overrides), headerName: 'X-Support-Pass', headerValue: 'secret' };
+}
+
 export function fakeSupport(overrides: Partial<SupportApi> = {}): SupportApi {
   return {
-    list: vi.fn().mockImplementation((state: 'active' | 'past') => Promise.resolve(state === 'active' ? [session()] : [])),
-    request: vi.fn(),
+    passes: vi.fn().mockResolvedValue([pass(), pass({ id: 'p0', status: 'expired', reason: 'Ticket #4011: roles help', endedAt: '2026-11-10T09:30:00Z' })]),
+    start: vi.fn(),
     end: vi.fn(),
+    ownerInvitation: vi.fn().mockResolvedValue({ clientId: 'c1', email: 'mona@gulf-fm.example', name: 'Mona Haddad', status: 'invited', expiresAt: '2026-12-01T09:00:00Z', acceptUrl: null }),
+    reissueOwnerInvitation: vi.fn().mockResolvedValue({ clientId: 'c1', email: 'mona@gulf-fm.example', name: 'Mona Haddad', status: 'invited', expiresAt: '2026-12-01T09:00:00Z', acceptUrl: 'http://localhost:5174/join#abc' }),
     ...overrides,
   };
 }

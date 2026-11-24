@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../../shared/api/http';
+import { createDemoAccessApi } from './api/demo';
 import { renderWorkspace } from './test-utils';
 
 describe('Client shell', () => {
@@ -26,6 +27,8 @@ describe('Client shell', () => {
     const settings = screen.getByRole('navigation', { name: 'Settings' });
     expect(within(settings).getByText('Company profile').closest('.sidelink')).toHaveAttribute('aria-disabled', 'true');
     expect(within(settings).getByRole('link', { name: 'Roles & permissions' })).toBeInTheDocument();
+    expect(within(settings).getByRole('link', { name: 'Sites' })).toBeInTheDocument();
+    expect(within(settings).getByRole('link', { name: 'Support access' })).toBeInTheDocument();
   });
 
   it('has a user menu with the theme switch and sign out', async () => {
@@ -50,18 +53,37 @@ describe('Client shell', () => {
     await waitFor(() => expect(screen.queryByRole('group', { name: 'Account' })).not.toBeInTheDocument());
   });
 
-  it('tells a signed-in person without a workspace what to do', async () => {
-    renderWorkspace('/', { api: { me: vi.fn().mockRejectedValue(new ApiError(403, 'Forbidden')) } });
-    expect(await screen.findByText(/isn't a member of any company workspace/)).toBeInTheDocument();
+  it('shows why someone cannot use the app, as the server wrote it', async () => {
+    renderWorkspace('/', { api: { me: vi.fn().mockRejectedValue(new ApiError(403, 'Your account is deactivated in Gulf Facilities Co. Ask your Admin to reactivate it.')) } });
+    expect(await screen.findByText('Your account is deactivated in Gulf Facilities Co. Ask your Admin to reactivate it.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
   });
 
   it('offers a retry when the profile does not load', async () => {
-    const me = vi.fn().mockRejectedValueOnce(new ApiError(0, "Can't reach the server.")).mockResolvedValue({
-      id: 'u-mona', name: 'Mona Haddad', email: 'mona@gulf-fm.example', company: { id: 'c1', name: 'Gulf Facilities Co.', slug: 'gulf-fm' }, roles: [{ id: 'owner', name: 'Owner' }], permissions: ['users.manage'],
-    });
+    const base = createDemoAccessApi();
+    const me = vi.fn().mockRejectedValueOnce(new ApiError(0, "Can't reach the server.")).mockImplementation(() => base.me());
     renderWorkspace('/', { api: { me } });
     expect(await screen.findByText(/Your profile didn't load: Can't reach the server/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByRole('heading', { name: 'Users', level: 1 })).toBeInTheDocument();
+  });
+
+  it('uses the theme saved on the profile, and saves a new choice there', async () => {
+    const base = createDemoAccessApi();
+    const me = vi.fn(async () => ({ ...(await base.me()), theme: 'dark' as const }));
+    const { api } = renderWorkspace('/settings/users', { api: { me } });
+    await screen.findByRole('heading', { name: 'Users', level: 1 });
+    expect(document.documentElement.dataset.theme).toBe('dark');
+    await userEvent.click(screen.getByRole('button', { name: /Account:/ }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Light' }));
+    expect(api.savePreferences).toHaveBeenCalledWith('light');
+    expect(document.documentElement.dataset.theme).toBe('light');
+  });
+
+  it('shows a banner while platform support is inside the workspace', async () => {
+    const base = createDemoAccessApi();
+    const me = vi.fn(async () => ({ ...(await base.me()), supportSession: { passId: 'p1', access: 'read' as const, expiresAt: '2026-11-24T12:30:00Z' } }));
+    renderWorkspace('/settings/users', { api: { me } });
+    expect(await screen.findByText(/Support session: you're in Gulf Facilities Co. as platform support \(read-only\)/)).toBeInTheDocument();
   });
 });

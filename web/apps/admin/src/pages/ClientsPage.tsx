@@ -6,7 +6,9 @@ import { STATUS_LABELS, type Client, type ClientFilter } from '../api/tenancy';
 import { BILLING_ONLY, OWNER_ONLY, SUPPORT_ONLY, canRequestSupport, useMe } from '../me';
 import { ChangePlanDialog } from './ChangePlanDialog';
 import { NewClientDialog } from './NewClientDialog';
+import { OwnerInvitationDialog } from './OwnerInvitationDialog';
 import { RequestSupportDialog } from './RequestSupportDialog';
+import { startedMessage } from './SupportPage';
 import { SuspendDialog } from './SuspendDialog';
 
 const FILTERS: { value: ClientFilter; label: string }[] = [
@@ -16,7 +18,7 @@ const FILTERS: { value: ClientFilter; label: string }[] = [
   { value: 'suspended', label: 'Suspended' },
 ];
 
-type Open = { kind: 'new' } | { kind: 'suspend'; client: Client } | { kind: 'plan'; client: Client } | { kind: 'support'; client: Client } | null;
+type Open = { kind: 'new' } | { kind: 'suspend'; client: Client } | { kind: 'plan'; client: Client } | { kind: 'support'; client: Client } | { kind: 'owner'; client: Client } | null;
 
 export function ClientsPage() {
   const api = useApi();
@@ -113,7 +115,7 @@ export function ClientsPage() {
 
         {rows.length > 0 ? (
           <div className="table-scroll">
-            <table className="data" style={{ minWidth: 960 }}>
+            <table className="data" style={{ minWidth: 1100 }}>
               <thead>
                 <tr><th>Client</th><th>Plan</th><th>Users</th><th>Assets</th><th>Status</th><th>Region</th><th style={{ textAlign: 'right' }}>Actions</th></tr>
               </thead>
@@ -137,6 +139,7 @@ export function ClientsPage() {
                       <td className="muted">{c.regionName}</td>
                       <td>
                         <div className="row-actions">
+                          <Button size="sm" onClick={() => setOpen({ kind: 'owner', client: c })} aria-label={`Owner invitation for ${c.name}`}>Owner</Button>
                           <Button size="sm" onClick={() => setOpen({ kind: 'support', client: c })} disabledReason={canRequestSupport(me) ? null : SUPPORT_ONLY} aria-label={`Request support access to ${c.name}`}><ShieldIcon /> Support</Button>
                           <Button size="sm" onClick={() => setOpen({ kind: 'plan', client: c })} disabledReason={me.canManageBilling ? null : BILLING_ONLY} aria-label={`Change plan for ${c.name}`}>Plan</Button>
                           {c.status === 'suspended' ? (
@@ -159,11 +162,12 @@ export function ClientsPage() {
       {open?.kind === 'new' ? <NewClientDialog onClose={() => setOpen(null)} onCreated={(c) => refresh(`${c.name} was created on the ${c.plan.name} plan.`)} /> : null}
       {open?.kind === 'suspend' ? <SuspendDialog client={open.client} onClose={() => setOpen(null)} onDone={(c) => refresh(`${c.name} is suspended.`)} /> : null}
       {open?.kind === 'support' ? (
-        <RequestSupportDialog clientId={open.client.id} onClose={() => setOpen(null)} onDone={(s) => {
+        <RequestSupportDialog client={open.client} onClose={() => setOpen(null)} onDone={(s) => {
+          setMessage(`${startedMessage(s, open.client.name)} Follow it under Support access.`);
           setOpen(null);
-          setMessage(s.status === 'pending_approval' ? `${s.clientName}'s admins were asked to approve read and write access. Follow it under Support access.` : `Support session with ${s.clientName} started. Follow it under Support access.`);
         }} />
       ) : null}
+      {open?.kind === 'owner' ? <OwnerInvitationDialog client={open.client} onClose={() => setOpen(null)} /> : null}
       {open?.kind === 'plan' ? <ChangePlanDialog client={open.client} onClose={() => setOpen(null)} onDone={(c) => refresh(`${c.name} is now on the ${c.plan.name} plan.`)} /> : null}
     </div>
   );

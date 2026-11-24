@@ -25,6 +25,12 @@ export function roleLabel(me: Me): string {
 
 export const SUPPORT_ONLY = 'Only Support staff and the Platform Owner can request support access.';
 
+export const CHANGE_ACCESS_OWNER_ONLY = 'Only the Platform Owner can open a pass with change access. Request a read-only pass instead.';
+
+export function isPlatformOwner(me: Me): boolean {
+  return me.roles.includes('platform-owner');
+}
+
 export function canRequestSupport(me: Me): boolean {
   return me.roles.includes('platform-owner') || me.roles.includes('platform-support');
 }

@@ -21,8 +21,8 @@ function isDirty(role: Role, draft: RoleInput) {
 }
 
 function kindLabel(r: Role) {
-  if (r.locked) return 'Built-in · locked';
-  return r.builtIn ? 'Built-in · editable' : 'Custom';
+  if (r.kind === 'owner') return 'Built-in · locked';
+  return r.kind === 'built_in' ? 'Built-in · editable' : 'Custom';
 }
 
 export function RolesPage() {
@@ -80,7 +80,7 @@ export function RolesPage() {
     setSaving(true);
     setSaveError(null);
     try {
-      const saved = await api.updateRole(selected.id, { ...current, version: selected.version });
+      const saved = await api.updateRole(selected.id, current);
       setOverrides((o) => ({ ...o, [saved.id]: saved }));
       setDraft(null);
       setMessage(`${saved.name} is saved. Everyone with this role has the new permissions now.`);
@@ -138,7 +138,7 @@ export function RolesPage() {
               <button key={r.id} type="button" className="role" aria-pressed={r.id === selected.id} onClick={() => pick(r.id)}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
                   <span style={{ fontWeight: 700, fontSize: 14, flexGrow: 1 }}>{r.name}</span>
-                  {r.locked ? <LockIcon /> : null}
+                  {r.kind === 'owner' ? <LockIcon /> : null}
                   <span className="mono muted" style={{ fontSize: 12 }}>{r.memberCount} {r.memberCount === 1 ? 'person' : 'people'}</span>
                 </span>
                 <span className="muted" style={{ fontSize: 12 }}>
@@ -157,19 +157,19 @@ export function RolesPage() {
                 </div>
                 <p className="muted" style={{ margin: '6px 0 0', fontSize: 14 }}>{selected.description}</p>
               </div>
-              <Button size="sm" disabledReason={manageReason} onClick={() => setDialog({ kind: 'duplicate', source: selected, draft: current })}>Duplicate</Button>
-              {!selected.builtIn ? (
+              <Button size="sm" disabledReason={manageReason ?? (dirty ? 'Save or discard your changes first, so the copy matches the saved role.' : null)} onClick={() => setDialog({ kind: 'duplicate', source: selected })}>Duplicate</Button>
+              {selected.kind === 'custom' ? (
                 <Button size="sm" variant="danger" disabledReason={manageReason ?? selected.cannotDeleteReason} onClick={() => setDialog({ kind: 'delete', role: selected })}>Delete</Button>
               ) : null}
             </div>
 
-            {selected.locked ? (
+            {selected.kind === 'owner' ? (
               <div style={{ margin: '16px 20px 0' }}>
                 <Notice kind="warn">The Owner role always has every permission and can't be edited. A company must keep at least one Owner.</Notice>
               </div>
             ) : null}
 
-            {!selected.builtIn ? (
+            {selected.kind === 'custom' ? (
               <div className="role-section" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
                 <Field label="Role name" required error={saveError?.fields.name} style={{ flex: '1 1 220px' }}>
                   <input className="input" value={current.name} readOnly={Boolean(editReason)} onChange={(e) => edit({ name: e.target.value })} />
@@ -185,9 +185,9 @@ export function RolesPage() {
             <div className="perm-grid">
               {areas.map((area) => (
                 <fieldset key={area.key} className="perm-area">
-                  <legend className="eyebrow">{area.label}</legend>
+                  <legend className="eyebrow">{area.title}</legend>
                   {area.permissions.map((p) => {
-                    const on = selected.locked || current.permissions.includes(p.key);
+                    const on = selected.kind === 'owner' || current.permissions.includes(p.key);
                     return (
                       <label key={p.key} className="perm" title={editReason ?? undefined}>
                         <input type="checkbox" checked={on} disabled={Boolean(editReason)}
@@ -276,8 +276,8 @@ function DeleteRoleDialog({ role, onClose, onConfirm }: { role: Role; onClose: (
 /** Who has this role and where it applies for each of them. Sites belong to the person's assignment, not to the role. */
 function RoleMembers({ role, sites }: { role: Role; sites: Site[] }) {
   const api = useApi();
-  const [members, reload] = useLoad(() => api.listUsers({ status: 'all', search: '', roleId: role.id }), [api, role.id]);
-  const rows = (members.data?.items ?? []).filter((u) => u.status !== 'deactivated');
+  const [members, reload] = useLoad(() => api.listUsers('all', ''), [api]);
+  const rows = (members.data ?? []).filter((u) => u.status !== 'deactivated' && u.roles.some((r) => r.id === role.id));
   return (
     <div className="role-section" aria-labelledby="members-title">
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -295,7 +295,7 @@ function RoleMembers({ role, sites }: { role: Role; sites: Site[] }) {
             const mine = u.roles.find((r) => r.id === role.id);
             return (
               <li key={u.id}>
-                <span style={{ fontWeight: 600 }}>{u.name ?? u.email}</span>
+                <span style={{ fontWeight: 600 }}>{u.name}</span>
                 <span className="muted">{siteNames(sites, mine?.siteIds ?? [])}</span>
               </li>
             );

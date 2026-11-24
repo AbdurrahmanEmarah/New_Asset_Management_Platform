@@ -12,7 +12,8 @@ export type AuthState =
 
 export interface AuthContextValue {
   state: AuthState;
-  signIn: () => Promise<void>;
+  /** Starts sign-in; afterwards the app returns to `returnTo` (default: the current page). */
+  signIn: (returnTo?: string) => Promise<void>;
   signOut: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
 }
@@ -90,8 +91,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [manager]);
 
-  const signIn = useCallback(async () => {
-    await manager?.signinRedirect({ state: window.location.pathname + window.location.search });
+  const signIn = useCallback(async (returnTo?: string) => {
+    await manager?.signinRedirect({ state: returnTo ?? window.location.pathname + window.location.search });
   }, [manager]);
 
   const signOut = useCallback(async () => {

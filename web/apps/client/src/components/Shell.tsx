@@ -1,7 +1,10 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { NavLink } from 'react-router';
 import { initials } from '../../../../shared/errors';
-import { Button, LogoMark, ThemeSwitch } from '../../../../shared/ui';
+import { Button, LogoMark, Notice, ThemeSwitch } from '../../../../shared/ui';
+import type { ThemeMode } from '../../../../shared/theme/theme';
+import { ACCESS_LABELS } from '../api/access';
+import { useApi } from '../api/context';
 import { useMe } from '../me';
 
 interface TopItem {
@@ -19,6 +22,8 @@ export const MAIN_NAV: TopItem[] = [
   { label: 'Reports', comingIn: 'Reports arrive in phase 5.' },
   { label: 'Settings', to: '/settings' },
 ];
+
+const clock = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' });
 
 export function Shell({ children, onSignOut }: { children: ReactNode; onSignOut: () => void }) {
   const me = useMe();
@@ -44,6 +49,14 @@ export function Shell({ children, onSignOut }: { children: ReactNode; onSignOut:
         </nav>
         <UserMenu onSignOut={onSignOut} />
       </header>
+      {me.supportSession ? (
+        <div className="support-banner">
+          <Notice kind="warn">
+            Support session: you're in {me.company.name} as platform support ({ACCESS_LABELS[me.supportSession.access].toLowerCase()}) until {clock.format(new Date(me.supportSession.expiresAt))}.
+            Everything you do is recorded in their audit log.
+          </Notice>
+        </div>
+      ) : null}
       <div className="app-body">{children}</div>
     </div>
   );
@@ -51,7 +64,16 @@ export function Shell({ children, onSignOut }: { children: ReactNode; onSignOut:
 
 function UserMenu({ onSignOut }: { onSignOut: () => void }) {
   const me = useMe();
+  const api = useApi();
   const [open, setOpen] = useState(false);
+  const [themeError, setThemeError] = useState<string | null>(null);
+
+  const saveTheme = (mode: ThemeMode) => {
+    setThemeError(null);
+    api.savePreferences(mode).catch((err: unknown) => {
+      setThemeError(`Saved in this browser only: ${err instanceof Error ? err.message : 'your profile could not be updated.'}`);
+    });
+  };
   const menuId = useId();
   const ref = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -75,7 +97,7 @@ function UserMenu({ onSignOut }: { onSignOut: () => void }) {
     };
   }, [open]);
 
-  const roles = me.roles.map((r) => r.name).join(', ') || 'No role yet';
+  const roles = me.supportSession ? 'Platform support' : me.grants.map((g) => g.roleName).join(', ') || 'No role yet';
 
   return (
     <div className="usermenu" ref={ref}>
@@ -99,7 +121,8 @@ function UserMenu({ onSignOut }: { onSignOut: () => void }) {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <span className="eyebrow">Appearance</span>
-            <ThemeSwitch />
+            <ThemeSwitch onChange={saveTheme} />
+            {themeError ? <span className="field-error">{themeError}</span> : null}
           </div>
           <Button onClick={onSignOut}>Sign out</Button>
         </div>

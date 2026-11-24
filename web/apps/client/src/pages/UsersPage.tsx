@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { errorText } from '../../../../shared/errors';
 import { useDebounced, useLoad } from '../../../../shared/hooks';
-import { Button, Dialog, Notice, PlusIcon, StatusPill, UsageMeter } from '../../../../shared/ui';
-import { PERMISSIONS, USER_STATUS, type User, type UserFilter } from '../api/access';
+import { Button, Notice, PlusIcon, StatusPill, UsageMeter } from '../../../../shared/ui';
+import { PERMISSIONS, USER_STATUS, type InvitationLink, type User, type UserFilter } from '../api/access';
 import { useApi } from '../api/context';
 import { siteNames } from '../components/SiteChips';
 import { needs, useMe } from '../me';
 import { InviteDialog } from './InviteDialog';
+import { ChangeRolesDialog, ConfirmDialog, LinkDialog } from './UserDialogs';
 
 const FILTERS: { value: UserFilter; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -16,7 +17,22 @@ const FILTERS: { value: UserFilter; label: string }[] = [
   { value: 'deactivated', label: 'Deactivated' },
 ];
 
-const when = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+const day = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+const fmt = (iso: string) => day.format(new Date(iso));
+
+type Open =
+  | { kind: 'invite' }
+  | { kind: 'link'; link: InvitationLink }
+  | { kind: 'roles'; user: User }
+  | { kind: 'deactivate'; user: User }
+  | { kind: 'cancel'; user: User }
+  | null;
+
+function statusNote(u: User): string {
+  if (u.status === 'invited') return `Invited by ${u.invitedByName}${u.invitationExpiresAt ? ` · link expires ${fmt(u.invitationExpiresAt)}` : ''}`;
+  if (u.status === 'deactivated') return `By ${u.deactivatedByName ?? 'an admin'}${u.deactivatedAt ? ` on ${fmt(u.deactivatedAt)}` : ''}`;
+  return u.joinedAt ? `Joined ${fmt(u.joinedAt)}` : '';
+}
 
 export function UsersPage() {
   const api = useApi();
@@ -26,9 +42,10 @@ export function UsersPage() {
   const [filter, setFilter] = useState<UserFilter>('all');
   const [search, setSearch] = useState('');
   const debounced = useDebounced(search);
-  const [users, reload] = useLoad(() => api.listUsers({ status: filter, search: debounced, roleId }), [api, filter, debounced, roleId]);
+  const [users, reload] = useLoad(() => api.listUsers(filter, debounced), [api, filter, debounced]);
+  const [summary, reloadSummary] = useLoad(() => api.seatSummary(), [api]);
   const [options] = useLoad(() => Promise.all([api.roles(), api.sites()]), [api]);
-  const [open, setOpen] = useState<{ kind: 'invite' } | { kind: 'deactivate'; user: User } | null>(null);
+  const [open, setOpen] = useState<Open>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -36,28 +53,32 @@ export function UsersPage() {
   const roles = options.data?.[0] ?? [];
   const sites = options.data?.[1] ?? [];
   const roleFilterName = roleId ? roles.find((r) => r.id === roleId)?.name ?? 'this role' : null;
-  const rows = users.data?.items ?? [];
-  const seats = users.data?.seats;
+  const rows = (users.data ?? []).filter((u) => !roleId || u.roles.some((r) => r.id === roleId));
+  const seats = summary.data;
   const manageReason = needs(me, PERMISSIONS.manageUsers, 'manage users');
-  const seatsFull = seats ? seats.used >= seats.limit : false;
-  const inviteReason = manageReason
-    ?? (seatsFull && seats ? `All ${seats.limit} seats on your plan are in use. Deactivate someone, or ask Inventra to raise your plan.` : null);
+  const seatsFull = seats?.state === 'blocked';
+  const fullReason = seats ? `All ${seats.limit} seats on your plan are in use. Deactivate someone, or ask Inventra to raise your plan.` : null;
+  const inviteReason = manageReason ?? (seatsFull ? fullReason : null);
   const filtering = filter !== 'all' || debounced.trim() !== '' || roleId !== null;
 
+  const refresh = () => {
+    reload();
+    reloadSummary();
+  };
   const done = (text: string) => {
     setOpen(null);
     setMessage(text);
     setActionError(null);
-    reload();
+    refresh();
   };
 
-  async function act(user: User, run: () => Promise<User>, success: string) {
+  async function act<T>(user: User, run: () => Promise<T>, then: (result: T) => void) {
     setActionError(null);
     setMessage(null);
     setBusyId(user.id);
     try {
-      await run();
-      done(success);
+      then(await run());
+      refresh();
     } catch (err) {
       setActionError(errorText(err, 'That didn\'t work. Try again.'));
     } finally {
@@ -76,7 +97,7 @@ export function UsersPage() {
         {seats ? (
           <div style={{ minWidth: 180 }}>
             <span className="tile-label">Seats on your plan</span>
-            <UsageMeter label="Seats" used={seats.used} limit={seats.limit} state={seatsFull ? 'blocked' : seats.used / seats.limit >= 0.8 ? 'warn' : 'ok'} />
+            <UsageMeter label="Seats" used={seats.seats} limit={seats.limit} state={seats.state} />
           </div>
         ) : null}
         <Button variant="primary" onClick={() => setOpen({ kind: 'invite' })} disabledReason={inviteReason}>
@@ -116,27 +137,26 @@ export function UsersPage() {
         {users.status === 'ready' && rows.length === 0 ? (
           <div className="empty">
             <strong>{filtering ? 'Nobody matches' : 'Nobody here yet'}</strong>
-            <span>{filtering ? 'Try another search or filter.' : 'Invite your colleagues by email. They choose their own password when they accept.'}</span>
+            <span>{filtering ? 'Try another search or filter.' : 'Invite your colleagues. You get a link to send each of them.'}</span>
           </div>
         ) : null}
 
         {rows.length > 0 ? (
           <div className="table-scroll">
-            <table className="data" style={{ minWidth: 900 }}>
+            <table className="data" style={{ minWidth: 960 }}>
               <thead>
-                <tr><th>Person</th><th>Roles and sites</th><th>Status</th><th>Last active</th><th style={{ textAlign: 'right' }}>Actions</th></tr>
+                <tr><th>Person</th><th>Roles and sites</th><th>Status</th><th style={{ textAlign: 'right' }}>Actions</th></tr>
               </thead>
               <tbody>
                 {rows.map((u) => {
-                  const label = u.name ?? u.email;
                   const status = USER_STATUS[u.status];
                   const busy = busyId === u.id;
                   return (
                     <tr key={u.id}>
                       <td>
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <strong>{u.name ?? <span className="muted">Not accepted yet</span>}</strong>
-                          <span className="mono muted" style={{ fontSize: 12 }}>{u.email}{u.id === me.id ? ' · you' : ''}</span>
+                          <strong>{u.name}</strong>
+                          <span className="mono muted" style={{ fontSize: 12 }}>{u.email}{u.id === me.userId ? ' · you' : ''}</span>
                         </div>
                       </td>
                       <td>
@@ -144,29 +164,43 @@ export function UsersPage() {
                           {u.roles.map((r) => <span key={r.id} className="role-chip">{r.name} · {siteNames(sites, r.siteIds)}</span>)}
                         </div>
                       </td>
-                      <td><StatusPill kind={status.kind}>{status.label}</StatusPill></td>
-                      <td className="mono muted" style={{ whiteSpace: 'nowrap' }}>
-                        {u.lastActiveAt ? when.format(new Date(u.lastActiveAt)) : u.invitedAt ? `Invited ${when.format(new Date(u.invitedAt))}` : '–'}
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+                          <StatusPill kind={status.kind}>{status.label}</StatusPill>
+                          <span className="muted" style={{ fontSize: 12 }}>{statusNote(u)}</span>
+                        </div>
                       </td>
                       <td>
                         <div className="row-actions">
                           {u.status === 'invited' ? (
-                            <Button size="sm" busy={busy} aria-label={`Resend invite to ${label}`} disabledReason={manageReason ?? u.cannotResendInviteReason}
-                              onClick={() => act(u, () => api.resendInvite(u.id), `The invite was sent to ${u.email} again.`)}>
-                              Resend invite
+                            <>
+                              <Button size="sm" busy={busy} aria-label={`New invitation link for ${u.name}`} disabledReason={manageReason}
+                                onClick={() => act(u, () => api.reissueInvitation(u.id), (link) => setOpen({ kind: 'link', link }))}>
+                                New link
+                              </Button>
+                              <Button size="sm" variant="danger" aria-label={`Cancel invitation for ${u.name}`} disabledReason={manageReason}
+                                onClick={() => setOpen({ kind: 'cancel', user: u })}>
+                                Cancel invite
+                              </Button>
+                            </>
+                          ) : null}
+                          {u.status === 'active' ? (
+                            <Button size="sm" aria-label={`Change roles for ${u.name}`} disabledReason={manageReason ?? u.cannotChangeRolesReason}
+                              onClick={() => setOpen({ kind: 'roles', user: u })}>
+                              Roles
                             </Button>
                           ) : null}
                           {u.status === 'deactivated' ? (
-                            <Button size="sm" busy={busy} aria-label={`Reactivate ${label}`} disabledReason={manageReason ?? (seatsFull ? 'All seats on your plan are in use. Deactivate someone else first.' : null)}
-                              onClick={() => act(u, () => api.reactivate(u.id), `${label} can sign in again.`)}>
+                            <Button size="sm" busy={busy} aria-label={`Reactivate ${u.name}`} disabledReason={manageReason ?? (seatsFull ? fullReason : null)}
+                              onClick={() => act(u, () => api.reactivate(u.id), () => setMessage(`${u.name} can sign in again.`))}>
                               Reactivate
                             </Button>
-                          ) : (
-                            <Button size="sm" variant="danger" aria-label={`Deactivate ${label}`} disabledReason={manageReason ?? u.cannotDeactivateReason}
+                          ) : u.status === 'active' ? (
+                            <Button size="sm" variant="danger" aria-label={`Deactivate ${u.name}`} disabledReason={manageReason ?? u.cannotDeactivateReason}
                               onClick={() => setOpen({ kind: 'deactivate', user: u })}>
                               Deactivate
                             </Button>
-                          )}
+                          ) : null}
                         </div>
                       </td>
                     </tr>
@@ -180,39 +214,22 @@ export function UsersPage() {
       </section>
 
       {open?.kind === 'invite' ? (
-        <InviteDialog roles={roles} sites={sites} onClose={() => setOpen(null)} onInvited={(u) => done(`An invite was sent to ${u.email}.`)} />
+        <InviteDialog roles={roles} sites={sites} onClose={() => setOpen(null)} onInvited={(link) => { setOpen({ kind: 'link', link }); setMessage(`${link.user.name} is invited. Send them the link.`); refresh(); }} />
+      ) : null}
+      {open?.kind === 'link' ? <LinkDialog link={open.link} onClose={() => setOpen(null)} /> : null}
+      {open?.kind === 'roles' ? (
+        <ChangeRolesDialog user={open.user} roles={roles} sites={sites} onClose={() => setOpen(null)} onDone={(u) => done(`${u.name}'s roles are saved.`)} />
       ) : null}
       {open?.kind === 'deactivate' ? (
-        <DeactivateDialog user={open.user} onClose={() => setOpen(null)} onDone={(u) => done(`${u.name ?? u.email} is deactivated.`)} />
+        <ConfirmDialog title={`Deactivate ${open.user.name}?`} action="Deactivate" danger onClose={() => setOpen(null)}
+          description="They're signed out straight away and can't sign in again. Their work history stays, and the seat is freed. You can reactivate them later."
+          run={async () => { const u = await api.deactivate(open.user.id); done(`${u.name} is deactivated.`); }} />
+      ) : null}
+      {open?.kind === 'cancel' ? (
+        <ConfirmDialog title={`Cancel ${open.user.name}'s invitation?`} action="Cancel invitation" danger onClose={() => setOpen(null)}
+          description="Their link stops working and the seat is freed. You can invite them again later."
+          run={async () => { await api.cancelInvitation(open.user.id); done(`${open.user.name}'s invitation is cancelled.`); }} />
       ) : null}
     </div>
-  );
-}
-
-function DeactivateDialog({ user, onClose, onDone }: { user: User; onClose: () => void; onDone: (u: User) => void }) {
-  const api = useApi();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const label = user.name ?? user.email;
-
-  async function confirm() {
-    setBusy(true);
-    setError(null);
-    try {
-      onDone(await api.deactivate(user.id));
-    } catch (err) {
-      setError(errorText(err, `${label} could not be deactivated.`));
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Dialog title={`Deactivate ${label}?`} description="They're signed out straight away and can't sign in again. Their work history stays, and the seat is freed. You can reactivate them later." onClose={onClose}>
-      {error ? <Notice kind="error">{error}</Notice> : null}
-      <div className="dialog-actions">
-        <Button onClick={onClose}>Cancel</Button>
-        <Button variant="primary" busy={busy} onClick={confirm}>{busy ? 'Deactivating…' : 'Deactivate'}</Button>
-      </div>
-    </Dialog>
   );
 }

@@ -9,7 +9,8 @@ export const SETTINGS_NAV: { heading: string; items: SideItem[] }[] = [
       { label: 'Company profile', comingIn: 'Company profile and branding arrive in a later release.' },
       { label: 'Users', to: '/settings/users' },
       { label: 'Roles & permissions', to: '/settings/roles' },
-      { label: 'Sites & locations', comingIn: 'Sites & locations arrive with the asset register (phase 2).' },
+      { label: 'Sites', to: '/settings/sites' },
+      { label: 'Support access', to: '/settings/support' },
     ],
   },
   {

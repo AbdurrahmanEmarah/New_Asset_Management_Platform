@@ -99,3 +99,4 @@ a.sidelink:hover { background: var(--sunken); }
 .members { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .members li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding: 8px 0; font-size: 14px; border-top: 1px solid var(--line-soft); }
 .members li:first-child { border-top: none; }
+.support-banner { padding: 12px 24px 0; }

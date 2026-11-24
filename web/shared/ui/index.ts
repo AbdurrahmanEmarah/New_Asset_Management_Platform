@@ -1,4 +1,5 @@
 export { Button } from './Button';
+export { CopyLink } from './CopyLink';
 export { Dialog } from './Dialog';
 export { Field } from './Field';
 export { Gate } from './Gate';

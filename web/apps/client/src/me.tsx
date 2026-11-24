@@ -21,7 +21,3 @@ export function can(me: AccessMe, permission: string): boolean {
 export function needs(me: AccessMe, permission: string, what: string): string | null {
   return can(me, permission) ? null : `You need the ${permission} permission to ${what}. Ask an Admin.`;
 }
-
-export function isOwner(me: AccessMe): boolean {
-  return me.roles.some((r) => r.id === 'owner' || r.name === 'Owner');
-}

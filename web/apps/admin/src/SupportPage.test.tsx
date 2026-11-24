@@ -5,7 +5,7 @@ import { ApiError } from '../../../shared/api/http';
 import { ThemeProvider } from '../../../shared/theme/ThemeProvider';
 import { Console } from './App';
 import { timeLeft } from './pages/SupportPage';
-import { BILLING, SUPPORT, client, fakeApi, fakeSupport, session } from './test-api';
+import { BILLING, SUPPORT, client, fakeApi, fakeSupport, started } from './test-api';
 
 function renderAt(path: string, api = fakeApi(), support = fakeSupport()) {
   window.history.pushState(null, '', path);
@@ -19,83 +19,106 @@ describe('Support access page', () => {
   });
   afterEach(() => vi.useRealTimers());
 
-  it('is reachable from the nav and lists active sessions with the time left', async () => {
-    renderAt('/');
+  it('is reachable from the nav and lists the first client\'s passes with time left', async () => {
+    const { support } = renderAt('/');
     const nav = await screen.findByRole('navigation', { name: 'Platform admin' });
     await userEvent.click(within(nav).getByRole('link', { name: /Support access/ }));
-    const active = await screen.findByRole('region', { name: 'Active and waiting' });
-    const row = (await within(active).findByText('Gulf Facilities Co.')).closest('tr')!;
+    const row = (await screen.findByText(/Ticket #4182/)).closest('tr')!;
     expect(within(row).getByText('Read-only')).toBeInTheDocument();
     expect(within(row).getByText('25 min left')).toBeInTheDocument();
     expect(within(row).getByText('Active')).toBeInTheDocument();
-    expect(await screen.findByText('No past sessions')).toBeInTheDocument();
+    expect(screen.getByText('Expired')).toBeInTheDocument();
+    expect(support.passes).toHaveBeenCalledWith('c1');
   });
 
-  it('requests access with a reason, duration and access level', async () => {
-    const request = vi.fn().mockResolvedValue(session({ id: 's2', durationMinutes: 30 }));
-    const { support } = renderAt('/support', fakeApi({ me: vi.fn().mockResolvedValue(SUPPORT) }), fakeSupport({ request }));
+  it('opens a pass with a reason, duration and access level', async () => {
+    const start = vi.fn().mockResolvedValue(started({ id: 'p2' }));
+    renderAt('/support', fakeApi({ me: vi.fn().mockResolvedValue(SUPPORT) }), fakeSupport({ start }));
     await userEvent.click(await screen.findByRole('button', { name: /Request access/ }));
-    const dialog = screen.getByRole('dialog', { name: 'Request support access' });
+    const dialog = screen.getByRole('dialog', { name: 'Support access to Gulf Facilities Co.' });
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Start 60-minute session' }));
-    expect(within(dialog).getByText('Choose the client you need to help.')).toBeInTheDocument();
     expect(within(dialog).getByText(/Say why you need access/)).toBeInTheDocument();
-    expect(request).not.toHaveBeenCalled();
+    expect(start).not.toHaveBeenCalled();
 
-    await within(dialog).findByRole('option', { name: /Gulf Facilities Co./ });
-    await userEvent.selectOptions(within(dialog).getByLabelText(/Client/), 'c1');
+    expect(within(dialog).getByRole('option', { name: /Read and change/ })).toBeDisabled();
+    expect(within(dialog).getByText(/Only the Platform Owner can open a pass with change access/)).toBeInTheDocument();
     await userEvent.type(within(dialog).getByLabelText(/Reason/), 'Ticket #4182: locations missing');
     await userEvent.selectOptions(within(dialog).getByLabelText('Duration'), '30');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Start 30-minute session' }));
 
-    expect(request).toHaveBeenCalledWith({ clientId: 'c1', reason: 'Ticket #4182: locations missing', durationMinutes: 30, access: 'read' });
-    expect(await screen.findByText(/Support session with Gulf Facilities Co. started/)).toBeInTheDocument();
-    expect(support.list).toHaveBeenCalledTimes(4);
+    expect(start).toHaveBeenCalledWith('c1', { reason: 'Ticket #4182: locations missing', minutes: 30, access: 'read' });
+    expect(await screen.findByText(/Support pass for Gulf Facilities Co. opened \(read-only\)/)).toBeInTheDocument();
   });
 
-  it('explains that read and write needs the client to approve', async () => {
-    renderAt('/support');
+  it('lets the Platform Owner choose change access', async () => {
+    const start = vi.fn().mockResolvedValue(started({ access: 'change' }));
+    renderAt('/support', fakeApi(), fakeSupport({ start }));
     await userEvent.click(await screen.findByRole('button', { name: /Request access/ }));
     const dialog = screen.getByRole('dialog');
-    await userEvent.selectOptions(within(dialog).getByLabelText(/Access/), 'read_write');
-    expect(within(dialog).getByText(/starts once one of the client's admins approves it/)).toBeInTheDocument();
-    expect(within(dialog).getByRole('button', { name: 'Ask the client to approve' })).toBeInTheDocument();
+    await userEvent.type(within(dialog).getByLabelText(/Reason/), 'Ticket #4190: fix a broken import');
+    await userEvent.selectOptions(within(dialog).getByLabelText(/Access/), 'change');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Start 60-minute session' }));
+    expect(start).toHaveBeenCalledWith('c1', expect.objectContaining({ access: 'change' }));
   });
 
   it('tells billing staff why they cannot request access', async () => {
     renderAt('/support', fakeApi({ me: vi.fn().mockResolvedValue(BILLING) }));
     const button = await screen.findByRole('button', { name: /Request access/ });
-    expect(button).toHaveAttribute('aria-disabled', 'true');
     expect(button).toHaveAccessibleDescription('Only Support staff and the Platform Owner can request support access.');
   });
 
-  it('ends a session and shows the server reason when it cannot', async () => {
-    const end = vi.fn().mockRejectedValueOnce(new ApiError(409, 'This session already ended.')).mockResolvedValue(session({ status: 'ended' }));
+  it('ends a pass and shows the server reason when it cannot', async () => {
+    const end = vi.fn().mockRejectedValueOnce(new ApiError(403, 'Only the person who opened this pass, or the Platform Owner, can end it.')).mockResolvedValue(started().pass);
     renderAt('/support', fakeApi(), fakeSupport({ end }));
-    await userEvent.click(await screen.findByRole('button', { name: 'End session with Gulf Facilities Co.' }));
-    expect(await screen.findByText('This session already ended.')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'End session with Gulf Facilities Co.' }));
-    expect(await screen.findByText('The session with Gulf Facilities Co. has ended.')).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole('button', { name: 'End support pass opened by Support Agent' }));
+    expect(await screen.findByText(/Only the person who opened this pass/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'End support pass opened by Support Agent' }));
+    expect(end).toHaveBeenLastCalledWith('c1', 'p1');
+    expect(await screen.findByText('The support pass for Gulf Facilities Co. has ended.')).toBeInTheDocument();
   });
 
   it('shows load errors with a retry, and an empty state', async () => {
-    const list = vi.fn().mockRejectedValueOnce(new ApiError(0, "Can't reach the server.")).mockResolvedValue([]);
-    renderAt('/support', fakeApi(), fakeSupport({ list }));
-    expect(await screen.findByText(/didn't load: Can't reach the server/)).toBeInTheDocument();
+    const passes = vi.fn().mockRejectedValueOnce(new ApiError(0, "Can't reach the server.")).mockResolvedValue([]);
+    renderAt('/support', fakeApi(), fakeSupport({ passes }));
+    expect(await screen.findByText(/Support passes didn't load: Can't reach the server/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
-    expect(await screen.findByText('No open sessions')).toBeInTheDocument();
+    expect(await screen.findByText('No support passes for this client')).toBeInTheDocument();
   });
 
-  it('starts a request from a client row with that client chosen', async () => {
-    const request = vi.fn().mockResolvedValue(session({ status: 'pending_approval', access: 'read_write' }));
-    renderAt('/', fakeApi({ listClients: vi.fn().mockResolvedValue([client()]) }), fakeSupport({ request }));
+  it('starts a request from a client row', async () => {
+    const start = vi.fn().mockResolvedValue(started());
+    renderAt('/', fakeApi({ listClients: vi.fn().mockResolvedValue([client()]) }), fakeSupport({ start }));
     await userEvent.click(await screen.findByRole('button', { name: 'Request support access to Gulf Facilities Co.' }));
     const dialog = await screen.findByRole('dialog', { name: 'Support access to Gulf Facilities Co.' });
     await userEvent.type(within(dialog).getByLabelText(/Reason/), 'Ticket #4190: fix a broken import');
-    await userEvent.selectOptions(within(dialog).getByLabelText(/Access/), 'read_write');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Ask the client to approve' }));
-    expect(request).toHaveBeenCalledWith(expect.objectContaining({ clientId: 'c1', access: 'read_write' }));
-    expect(await screen.findByText(/admins were asked to approve/)).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Start 60-minute session' }));
+    expect(await screen.findByText(/Follow it under Support access/)).toBeInTheDocument();
+  });
+});
+
+describe('Owner invitation', () => {
+  it('shows the status and makes a new link to copy', async () => {
+    const { support } = renderAt('/');
+    await userEvent.click(await screen.findByRole('button', { name: 'Owner invitation for Gulf Facilities Co.' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Gulf Facilities Co.: Owner invitation' });
+    expect(await within(dialog).findByText(/Not joined yet/)).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Make a new link' }));
+    expect(support.reissueOwnerInvitation).toHaveBeenCalledWith('c1');
+    expect(await within(dialog).findByDisplayValue('http://localhost:5174/join#abc')).toBeInTheDocument();
+  });
+
+  it('says why support staff cannot make a new link', async () => {
+    renderAt('/', fakeApi({ me: vi.fn().mockResolvedValue(SUPPORT) }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Owner invitation for Gulf Facilities Co.' }));
+    const button = await screen.findByRole('button', { name: 'Make a new link' });
+    expect(button).toHaveAccessibleDescription('Only the Platform Owner can do this.');
+  });
+
+  it('says when the Owner has joined', async () => {
+    renderAt('/', fakeApi(), fakeSupport({ ownerInvitation: vi.fn().mockResolvedValue({ clientId: 'c1', email: 'm@x.example', name: 'Mona Haddad', status: 'active', expiresAt: null, acceptUrl: null }) }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Owner invitation for Gulf Facilities Co.' }));
+    expect(await screen.findByText("Mona Haddad has joined, so there's no invitation to send.")).toBeInTheDocument();
   });
 });
 

@@ -57,7 +57,7 @@ describe('Settings › Roles & permissions', () => {
     await userEvent.click(screen.getByRole('checkbox', { name: /Assign technicians/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Save role' }));
     expect(api.updateRole).toHaveBeenCalledWith('tech', expect.objectContaining({
-      permissions: ['assets.read', 'workorders.read', 'workorders.complete', 'inventory.read', 'workorders.assign'], version: '1',
+      permissions: ['assets.read', 'workorders.read', 'workorders.complete', 'inventory.read', 'workorders.assign'],
     }));
     expect(await screen.findByText(/Technician is saved/)).toBeInTheDocument();
     expect(screen.getByText('All changes saved.')).toBeInTheDocument();
@@ -78,7 +78,7 @@ describe('Settings › Roles & permissions', () => {
     expect(screen.getByRole('heading', { name: 'Storekeeper', level: 2 })).toBeInTheDocument();
   });
 
-  it('shows a conflict from the server as written', async () => {
+  it('shows a refusal from the server as written', async () => {
     const updateRole = vi.fn().mockRejectedValue(new ApiError(409, 'Someone else changed this role while you were editing. Discard your changes to see theirs, then try again.'));
     renderWorkspace('/settings/roles', { api: { updateRole } });
     await openRole('Requester');
@@ -87,20 +87,22 @@ describe('Settings › Roles & permissions', () => {
     expect(await screen.findByText(/Someone else changed this role/)).toBeInTheDocument();
   });
 
-  it('duplicates a role, including its ticks', async () => {
+  it('duplicates a saved role, and asks to save first when there are changes', async () => {
     const { api } = renderWorkspace('/settings/roles');
     await openRole('Storekeeper');
+    await userEvent.click(screen.getByRole('checkbox', { name: /View reports/ }));
+    expect(screen.getByRole('button', { name: 'Duplicate' })).toHaveAccessibleDescription(/Save or discard your changes first/);
+    await userEvent.click(screen.getByRole('button', { name: 'Discard' }));
     await userEvent.click(screen.getByRole('button', { name: 'Duplicate' }));
     const dialog = screen.getByRole('dialog', { name: 'Duplicate Storekeeper' });
     expect(within(dialog).getByLabelText(/Role name/)).toHaveValue('Storekeeper (copy)');
     await userEvent.clear(within(dialog).getByLabelText(/Role name/));
     await userEvent.type(within(dialog).getByLabelText(/Role name/), 'Night storekeeper');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Create copy' }));
-    expect(api.createRole).toHaveBeenCalledWith(expect.objectContaining({
-      name: 'Night storekeeper', copyFromRoleId: 'store', permissions: ['assets.read', 'workorders.read', 'inventory.read', 'inventory.write'],
-    }));
+    expect(api.copyRole).toHaveBeenCalledWith('store', 'Night storekeeper');
     expect(await screen.findByRole('heading', { name: 'Night storekeeper', level: 2 })).toBeInTheDocument();
     expect(screen.getByText('Custom')).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /Receive and issue parts/ })).toBeChecked();
   });
 
   it('creates a new role and refuses a duplicate name', async () => {

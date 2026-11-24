@@ -2,17 +2,17 @@ import { useState, type FormEvent } from 'react';
 import { ApiError } from '../../../../shared/api/http';
 import { errorText } from '../../../../shared/errors';
 import { Button, Dialog, Field, Notice } from '../../../../shared/ui';
-import type { Role, RoleInput } from '../api/access';
+import type { Role } from '../api/access';
 import { useApi } from '../api/context';
 
-export type RoleDialogMode = { kind: 'new' } | { kind: 'duplicate'; source: Role; draft: RoleInput };
+export type RoleDialogMode = { kind: 'new' } | { kind: 'duplicate'; source: Role };
 
-/** New role (empty) or Duplicate (a copy of the selected role, including unsaved ticks). */
+/** New role (empty) or Duplicate (POST /roles/{id}/copy: a custom role with the same permissions). */
 export function RoleDialog({ mode, onClose, onCreated }: { mode: RoleDialogMode; onClose: () => void; onCreated: (r: Role) => void }) {
   const api = useApi();
   const copy = mode.kind === 'duplicate' ? mode : null;
   const [name, setName] = useState(copy ? `${copy.source.name} (copy)` : '');
-  const [description, setDescription] = useState(copy ? copy.draft.description : '');
+  const [description, setDescription] = useState('');
   const [nameError, setNameError] = useState<string | undefined>();
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -26,12 +26,9 @@ export function RoleDialog({ mode, onClose, onCreated }: { mode: RoleDialogMode;
     setBusy(true);
     setFormError(null);
     try {
-      const role = await api.createRole({
-        name: name.trim(),
-        description: description.trim(),
-        permissions: copy ? copy.draft.permissions : [],
-        ...(copy ? { copyFromRoleId: copy.source.id } : {}),
-      });
+      const role = copy
+        ? await api.copyRole(copy.source.id, name.trim())
+        : await api.createRole({ name: name.trim(), description: description.trim(), permissions: [] });
       onCreated(role);
     } catch (err) {
       if (err instanceof ApiError && err.field('name')) setNameError(err.field('name'));
@@ -51,9 +48,11 @@ export function RoleDialog({ mode, onClose, onCreated }: { mode: RoleDialogMode;
         <Field label="Role name" required error={nameError}>
           <input className="input" value={name} maxLength={60} onChange={(e) => { setName(e.target.value); setNameError(undefined); }} />
         </Field>
-        <Field label="Description" hint="One sentence on who this role is for.">
-          <input className="input" value={description} onChange={(e) => setDescription(e.target.value)} />
-        </Field>
+        {copy ? null : (
+          <Field label="Description" hint="One sentence on who this role is for.">
+            <input className="input" value={description} onChange={(e) => setDescription(e.target.value)} />
+          </Field>
+        )}
         <div className="dialog-actions">
           <Button onClick={onClose}>Cancel</Button>
           <Button type="submit" variant="primary" busy={busy}>{busy ? 'Creating…' : copy ? 'Create copy' : 'Create role'}</Button>
