@@ -19,8 +19,9 @@ Inventra is a multi-tenant asset management SaaS. Each client company manages it
 | Shared chassis | `src/BuildingBlocks/Inventra.BuildingBlocks`: service defaults (OpenTelemetry, health, service discovery, resilience), sign-in and policies, database setup, problem details. |
 | Gateway | YARP, `src/Gateway/Inventra.Gateway`. Routes are `/api/<service>/**`; every route requires a token. |
 | Data | PostgreSQL, one database per service, EF Core 10 + Npgsql, snake_case names, pool capped by `Database:MaxPoolSize` (default 10). |
-| Identity | Keycloak locally (port **18080**). Realms are `inventra-platform` (staff) and `inventra` (clients, from patch 02). Entra External ID in Azure. |
-| Web | `web/`: one npm package with apps under `web/apps/*` (admin now, client next) and shared code in `web/shared`. React 19, React Router 7, Vite 7, TypeScript 5.9, Vitest 4.0, ESLint 9. |
+| Identity | Keycloak locally (port **18080**). Realms are `inventra-platform` (staff; client `admin-console`) and `inventra` (clients; public clients `web-app` and `field-app`, confidential client `access-service`). The `tenant_id` claim comes from a user attribute. Entra External ID in Azure. |
+| Messaging | Wolverine with a PostgreSQL outbox/inbox (schema `wolverine`), in `src/BuildingBlocks/Inventra.BuildingBlocks.Messaging`. Event contracts are in `Inventra.Contracts`. Transport: Azure Service Bus when `ServiceBus:FullyQualifiedNamespace` is set, RabbitMQ when `ConnectionStrings:rabbitmq` is set, local queues in tests. |
+| Web | `web/`: one npm package with apps under `web/apps/*` (`admin` on 5173, `client` on 5174) and shared code in `web/shared`. React 19, React Router 7, Vite 7, TypeScript 5.9, Vitest 4.0, ESLint 9. |
 | Packages | Central package management in `Directory.Packages.props`. NuGet audit fails the build on advisories. |
 
 ## Services
@@ -28,7 +29,7 @@ Inventra is a multi-tenant asset management SaaS. Each client company manages it
 | Service | Status |
 |---|---|
 | Tenancy & Admin (`src/Services/Tenancy`) | Built: clients, plans, limits, platform audit. |
-| Access | Patch 02: users, roles, permissions, site scope, invites, support access, row-level security, messaging (outbox). |
+| Access (`src/Services/Access`, port 5202, `accessdb`) | Built (milestone 02): users, invitations, roles and permissions, site scope on role assignments, sites, support passes, client audit, row-level security. See `docs/access.md`. |
 | Asset Catalog, Assets, Documents | Phase 2. |
 | Work Orders, Inventory, Notifications | Phase 3. |
 | Field app (Expo) | Phase 4. |
@@ -47,7 +48,14 @@ Inventra is a multi-tenant asset management SaaS. Each client company manages it
 - **Domain rules:**
   - Entities expose `CannotXReason()`, which returns null or a sentence.
   - Endpoints return 409 with that sentence. The UI shows it as-is.
-- **Audit:** every platform-staff change writes a `PlatformAuditEntry` in the same `SaveChanges`.
+- **Audit:** every platform-staff change writes a `PlatformAuditEntry` in the same `SaveChanges`. Client-side changes, including everything done under a support pass, go to that client's own audit log (Access).
+- **Client data (row-level security):**
+  - Client-scoped services use `AddTenantDatabase` and the `RowSecurityMigrations` steps, and call `ITenantContext.UseAsync` before touching data. Every table has `tenant_id` with a FORCEd policy.
+  - Locally the service logs in as a superuser and switches role per connection. In Azure it runs as a login that owns no tables (`Database:RowSecurityRole=""`).
+- **Events:** publish with `IDbContextOutbox.PublishAsync` and `SaveChangesAndFlushMessagesAsync`, so an event is saved in the same transaction as the change.
+- **Site scope:** lives on the person's role assignment (user + role + siteIds; empty means all sites), never on the role. The effective scope is the union of the assignments that grant a permission.
+- **Contracts:** each service's API is snapshotted in `docs/contracts/<service>.openapi.json`, and a test fails when they drift apart. Regenerate with `INVENTRA_UPDATE_CONTRACTS=1`.
+- **New services:** add them to `infra/services.json` (read by Bicep, the image build and the database tools), `Inventra.slnx`, the AppHost and the CI pending-model-changes step.
 - **Concurrency:** entities use `Property<uint>("Version").IsRowVersion()`, which maps to PostgreSQL's `xmin`. Never add a column named `xmin`.
 - **Migrations:**
   - Create them with `dotnet tool restore`, then `dotnet ef migrations add <Name> --project <service> -o Data/Migrations`.
@@ -65,6 +73,17 @@ Inventra is a multi-tenant asset management SaaS. Each client company manages it
   - Each app's `index.html` has the no-flash theme script; keep it in step with `shared/theme/theme.ts`.
 - **OIDC callback:** use `completeSignIn()`, which redeems a code once. React StrictMode runs effects twice in development, and a second redemption fails with "Code not valid".
 
+## The team
+
+The Lead session is the conversation with the owner. Five team sessions each own a part of the repo: Backend (`src/Services`, `src/BuildingBlocks`, `src/Gateway`, service tests), Web (`web/`), Mobile (`mobile/`), DevOps (`.github`, `infra`, `scripts`, `docs/deployment`) and QA (`tests/EndToEnd`, `docs/qa`).
+- Team sessions push `claude/<area>-<topic>` branches and report to the Lead.
+- The Lead merges them into `claude/integration-NN`, tests everything together and sends the owner one patch per milestone.
+- All sessions share the owner's 5-hour usage limit, so they run in waves and keep turns lean.
+
+## Deployment
+
+See `docs/deployment/`. The deploy workflow stays switched off until the repository variable `DEPLOY_ENABLED` is `true`.
+
 ## How we work
 
 1. **Never commit to main.** Branch from `origin/main` (`claude/<topic>`), commit, and push with `git push -u origin <branch>`.
@@ -74,7 +93,7 @@ Inventra is a multi-tenant asset management SaaS. Each client company manages it
    - Check that it applies to a clean worktree of `origin/main` and gives exactly the branch's tree.
    - Send it with the PowerShell steps to apply it.
 4. **The owner applies, commits and pushes to main themselves.** Afterwards, fetch main again: their commit hash differs from the branch.
-5. Patches so far: `01` foundation · `01a` CI fix.
+5. Patches so far: `01` foundation · `01a` CI fix · `02` Access, client web app, Azure foundation (in progress).
 
 ## The owner's machine
 
@@ -89,5 +108,7 @@ Inventra is a multi-tenant asset management SaaS. Each client company manages it
 - **vitest 4.1.x** crashes `npm install` on npm 10 ("Cannot read properties of null (reading 'edgesOut')") because of an optional peer. Stay on 4.0.x until npm is fixed.
 - **Keycloak image:** comes from quay.io, which Claude's cloud container can't reach. For local runs there, pull `docker.io/keycloak/keycloak:<tag>` and tag it as `quay.io/keycloak/keycloak:<tag>`.
 - **`dotnet ef -c` means `--context`**, not configuration. Write `--configuration Release` (this broke the first CI run).
+- **Bicep:** a parameter named `environment` shadows `environment()`, so use `az.environment()`. Azure PostgreSQL's admin has CREATEROLE but isn't a superuser.
+- **Usage limit:** five sessions at once used the 5-hour limit in about 30 minutes. Run them in waves.
 - **Infrastructure first:** when something hangs or flakes, check connection limits and pools before blaming the test.
 - **No AI costs** unless the owner decides otherwise.

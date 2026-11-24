@@ -51,6 +51,7 @@ jobs:
           dotnet tool restore
           # Note: for dotnet ef, -c means --context, so the configuration must be spelled out.
           dotnet ef migrations has-pending-model-changes --project src/Services/Tenancy/Inventra.Tenancy --no-build --configuration Release
+          dotnet ef migrations has-pending-model-changes --project src/Services/Access/Inventra.Access --no-build --configuration Release
       - name: Test
         run: dotnet test Inventra.slnx --no-build -c Release --logger "console;verbosity=normal" --blame-hang-timeout 10m
 
@@ -73,6 +74,7 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npx vite build --config apps/admin/vite.config.ts
+      - run: npx vite build --config apps/client/vite.config.ts
 
   images:
     name: Container images and database logins

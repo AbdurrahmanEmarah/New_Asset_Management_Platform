@@ -10,6 +10,12 @@
       "project": "src/Services/Tenancy/Inventra.Tenancy/Inventra.Tenancy.csproj",
       "database": "tenancydb",
       "usesBlobStorage": false
+    },
+    {
+      "name": "access",
+      "project": "src/Services/Access/Inventra.Access/Inventra.Access.csproj",
+      "database": "accessdb",
+      "usesBlobStorage": false
     }
   ]
 }
