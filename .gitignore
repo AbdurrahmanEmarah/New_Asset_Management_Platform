@@ -29,3 +29,6 @@ Thumbs.db
 
 # Patches exchanged with Claude
 patches/
+
+# Build output of scripts/build-images.sh
+artifacts/
