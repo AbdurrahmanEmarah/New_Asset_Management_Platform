@@ -32,8 +32,8 @@ jobs:
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
       DOTNET_NOLOGO: '1'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
       - name: Restore
@@ -43,7 +43,8 @@ jobs:
       - name: Check that migrations match the model
         run: |
           dotnet tool restore
-          dotnet ef migrations has-pending-model-changes --project src/Services/Tenancy/Inventra.Tenancy --no-build -c Release
+          # Note: for dotnet ef, -c means --context, so the configuration must be spelled out.
+          dotnet ef migrations has-pending-model-changes --project src/Services/Tenancy/Inventra.Tenancy --no-build --configuration Release
       - name: Test
         run: dotnet test Inventra.slnx --no-build -c Release --logger "console;verbosity=normal" --blame-hang-timeout 10m
 
@@ -55,8 +56,8 @@ jobs:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm

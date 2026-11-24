@@ -74,7 +74,7 @@ Inventra is a multi-tenant asset management SaaS. Each client company manages it
    - Check that it applies to a clean worktree of `origin/main` and gives exactly the branch's tree.
    - Send it with the PowerShell steps to apply it.
 4. **The owner applies, commits and pushes to main themselves.** Afterwards, fetch main again: their commit hash differs from the branch.
-5. Patches so far: `01` foundation.
+5. Patches so far: `01` foundation · `01a` CI fix.
 
 ## The owner's machine
 
@@ -88,5 +88,6 @@ Inventra is a multi-tenant asset management SaaS. Each client company manages it
 
 - **vitest 4.1.x** crashes `npm install` on npm 10 ("Cannot read properties of null (reading 'edgesOut')") because of an optional peer. Stay on 4.0.x until npm is fixed.
 - **Keycloak image:** comes from quay.io, which Claude's cloud container can't reach. For local runs there, pull `docker.io/keycloak/keycloak:<tag>` and tag it as `quay.io/keycloak/keycloak:<tag>`.
+- **`dotnet ef -c` means `--context`**, not configuration. Write `--configuration Release` (this broke the first CI run).
 - **Infrastructure first:** when something hangs or flakes, check connection limits and pools before blaming the test.
 - **No AI costs** unless the owner decides otherwise.
