@@ -6,18 +6,18 @@ import { useLoad } from '../../../../shared/hooks';
 import { Button, Dialog, Field, LockIcon, Notice, PlusIcon } from '../../../../shared/ui';
 import { PERMISSIONS, type PermissionArea, type Role, type RoleInput, type Site } from '../api/access';
 import { useApi } from '../api/context';
-import { SiteChips, siteNames } from '../components/SiteChips';
+import { siteNames } from '../components/SiteChips';
 import { needs, useMe } from '../me';
 import { RoleDialog, type RoleDialogMode } from './RoleDialog';
 
-const fromRole = (r: Role): RoleInput => ({ name: r.name, description: r.description, permissions: [...r.permissions], siteIds: [...r.siteIds] });
+const fromRole = (r: Role): RoleInput => ({ name: r.name, description: r.description, permissions: [...r.permissions] });
 
 function sameSet(a: string[], b: string[]) {
   return a.length === b.length && a.every((x) => b.includes(x));
 }
 
 function isDirty(role: Role, draft: RoleInput) {
-  return draft.name !== role.name || draft.description !== role.description || !sameSet(draft.permissions, role.permissions) || !sameSet(draft.siteIds, role.siteIds);
+  return draft.name !== role.name || draft.description !== role.description || !sameSet(draft.permissions, role.permissions);
 }
 
 function kindLabel(r: Role) {
@@ -86,7 +86,7 @@ export function RolesPage() {
       setMessage(`${saved.name} is saved. Everyone with this role has the new permissions now.`);
       reloadRoles();
     } catch (err) {
-      const fields = err instanceof ApiError ? { name: err.field('name'), permissions: err.field('permissions'), siteIds: err.field('siteIds') } : {};
+      const fields = err instanceof ApiError ? { name: err.field('name'), permissions: err.field('permissions') } : {};
       setSaveError({ text: errorText(err, 'The role could not be saved.'), fields });
     } finally {
       setSaving(false);
@@ -114,7 +114,7 @@ export function RolesPage() {
         <div style={{ flexGrow: 1 }}>
           <div className="eyebrow">Settings · Roles &amp; permissions</div>
           <h1>Roles &amp; permissions</h1>
-          <p className="muted" style={{ margin: '4px 0 0' }}>A role is a set of permissions. Give each person one or more roles, and limit a role to certain sites if needed.</p>
+          <p className="muted" style={{ margin: '4px 0 0' }}>A role is a set of permissions. Give each person one or more roles, each limited to certain sites for them if needed.</p>
         </div>
         <Button variant="primary" disabledReason={manageReason} onClick={() => setDialog({ kind: 'new' })}><PlusIcon /> New role</Button>
       </div>
@@ -158,7 +158,6 @@ export function RolesPage() {
                 <p className="muted" style={{ margin: '6px 0 0', fontSize: 14 }}>{selected.description}</p>
               </div>
               <Button size="sm" disabledReason={manageReason} onClick={() => setDialog({ kind: 'duplicate', source: selected, draft: current })}>Duplicate</Button>
-              <Link className="btn btn-sm" to={`/settings/users?role=${encodeURIComponent(selected.id)}`}>Members ({selected.memberCount})</Link>
               {!selected.builtIn ? (
                 <Button size="sm" variant="danger" disabledReason={manageReason ?? selected.cannotDeleteReason} onClick={() => setDialog({ kind: 'delete', role: selected })}>Delete</Button>
               ) : null}
@@ -181,16 +180,7 @@ export function RolesPage() {
               </div>
             ) : null}
 
-            <div className="role-section">
-              <div style={{ fontSize: 14, fontWeight: 700 }}>Where this role applies</div>
-              <SiteChips label="Sites" sites={sites} value={current.siteIds} onChange={(siteIds) => edit({ siteIds })} disabledReason={editReason} />
-              <div className="muted" style={{ fontSize: 13 }}>
-                {current.siteIds.length === 0
-                  ? 'People with this role can act at every site.'
-                  : `People with this role can act only at ${siteNames(sites, current.siteIds)}. Their assets and work orders elsewhere are hidden.`}
-              </div>
-              {saveError?.fields.siteIds ? <span className="field-error">{saveError.fields.siteIds}</span> : null}
-            </div>
+            <RoleMembers role={selected} sites={sites} />
 
             <div className="perm-grid">
               {areas.map((area) => (
@@ -224,7 +214,7 @@ export function RolesPage() {
               </span>
               {saveError ? <span className="field-error" role="alert" style={{ flexBasis: '100%' }}>{saveError.text}</span> : null}
               <Button onClick={discard} disabledReason={dirty ? null : 'Nothing to discard.'}>Discard</Button>
-              <Button variant="primary" busy={saving} onClick={save} disabledReason={editReason ?? (dirty ? null : 'Nothing to save yet. Change a permission or site first.')}>
+              <Button variant="primary" busy={saving} onClick={save} disabledReason={editReason ?? (dirty ? null : 'Nothing to save yet. Tick or untick a permission first.')}>
                 {saving ? 'Saving…' : 'Save role'}
               </Button>
             </div>
@@ -280,5 +270,39 @@ function DeleteRoleDialog({ role, onClose, onConfirm }: { role: Role; onClose: (
         }}>{busy ? 'Deleting…' : 'Delete role'}</Button>
       </div>
     </Dialog>
+  );
+}
+
+/** Who has this role and where it applies for each of them. Sites belong to the person's assignment, not to the role. */
+function RoleMembers({ role, sites }: { role: Role; sites: Site[] }) {
+  const api = useApi();
+  const [members, reload] = useLoad(() => api.listUsers({ status: 'all', search: '', roleId: role.id }), [api, role.id]);
+  const rows = (members.data?.items ?? []).filter((u) => u.status !== 'deactivated');
+  return (
+    <div className="role-section" aria-labelledby="members-title">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <h3 id="members-title" style={{ margin: 0, fontSize: 14, fontWeight: 700, flexGrow: 1 }}>Members ({role.memberCount})</h3>
+        <Link className="btn btn-sm" to={`/settings/users?role=${encodeURIComponent(role.id)}`}>Manage in Users</Link>
+      </div>
+      {members.status === 'error' ? <Notice kind="error" action={<Button size="sm" onClick={reload}>Try again</Button>}>Members didn't load: {members.error.message}</Notice> : null}
+      {members.status === 'loading' && rows.length === 0 ? <span className="muted" style={{ fontSize: 13 }}>Loading members…</span> : null}
+      {members.status === 'ready' && rows.length === 0 ? (
+        <span className="muted" style={{ fontSize: 13 }}>Nobody has this role yet. Give it to people from Users, and choose the sites it applies at for each of them.</span>
+      ) : null}
+      {rows.length > 0 ? (
+        <ul className="members">
+          {rows.map((u) => {
+            const mine = u.roles.find((r) => r.id === role.id);
+            return (
+              <li key={u.id}>
+                <span style={{ fontWeight: 600 }}>{u.name ?? u.email}</span>
+                <span className="muted">{siteNames(sites, mine?.siteIds ?? [])}</span>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+      <span className="muted" style={{ fontSize: 13 }}>Sites are chosen per person when the role is given, so the same role can apply at different sites for different people.</span>
+    </div>
   );
 }

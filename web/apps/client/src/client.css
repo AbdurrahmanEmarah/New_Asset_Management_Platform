@@ -96,3 +96,6 @@ a.sidelink:hover { background: var(--sunken); }
 .check-row + .check-row { border-top: 1px solid var(--line-soft); }
 .check-row input { width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--action); flex-shrink: 0; }
 .check-row:has(input:disabled) { cursor: not-allowed; opacity: 0.7; }
+.members { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.members li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding: 8px 0; font-size: 14px; border-top: 1px solid var(--line-soft); }
+.members li:first-child { border-top: none; }

@@ -30,17 +30,17 @@ describe('Settings › Roles & permissions', () => {
     expect(screen.getByRole('button', { name: 'Save role' })).toHaveAccessibleDescription("The Owner role always has every permission and can't be edited.");
   });
 
-  it('groups permissions by area with their area.action codes and site scope chips', async () => {
+  it('groups permissions by area with their area.action codes, and lists members with their sites', async () => {
     renderWorkspace('/settings/roles');
     await openRole('Technician');
     const area = screen.getByRole('group', { name: 'Work orders' });
     expect(within(area).getByText('workorders.complete')).toBeInTheDocument();
     expect(within(area).getByRole('checkbox', { name: /Complete and sign off/ })).toBeChecked();
     expect(within(area).getByRole('checkbox', { name: /Assign technicians/ })).not.toBeChecked();
-    const sites = screen.getByRole('group', { name: 'Sites' });
-    expect(within(sites).getByRole('button', { name: 'Tower B' })).toHaveAttribute('aria-pressed', 'true');
-    expect(within(sites).getByRole('button', { name: 'All sites' })).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByText(/can act only at Tower B, North depot/)).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Sites' })).not.toBeInTheDocument();
+    const members = screen.getByRole('heading', { name: 'Members (1)' }).closest('.role-section')! as HTMLElement;
+    const yusuf = (await within(members).findByText('Yusuf Rahman')).closest('li')!;
+    expect(yusuf).toHaveTextContent('Tower B, North depot');
   });
 
   it('shows an unsaved-changes bar, saves, and discards', async () => {
@@ -55,10 +55,9 @@ describe('Settings › Roles & permissions', () => {
     expect(screen.getByRole('checkbox', { name: /Assign technicians/ })).not.toBeChecked();
 
     await userEvent.click(screen.getByRole('checkbox', { name: /Assign technicians/ }));
-    await userEvent.click(within(screen.getByRole('group', { name: 'Sites' })).getByRole('button', { name: 'All sites' }));
     await userEvent.click(screen.getByRole('button', { name: 'Save role' }));
     expect(api.updateRole).toHaveBeenCalledWith('tech', expect.objectContaining({
-      permissions: ['assets.read', 'workorders.read', 'workorders.complete', 'inventory.read', 'workorders.assign'], siteIds: [], version: '1',
+      permissions: ['assets.read', 'workorders.read', 'workorders.complete', 'inventory.read', 'workorders.assign'], version: '1',
     }));
     expect(await screen.findByText(/Technician is saved/)).toBeInTheDocument();
     expect(screen.getByText('All changes saved.')).toBeInTheDocument();
@@ -133,10 +132,12 @@ describe('Settings › Roles & permissions', () => {
     expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
   });
 
-  it('links members to the Users list filtered by the role', async () => {
+  it('shows an empty members list with what to do, and links to Users filtered by the role', async () => {
     renderWorkspace('/settings/roles');
+    await openRole('Requester');
+    expect(await screen.findByText(/Nobody has this role yet/)).toBeInTheDocument();
     await openRole('Technician');
-    await userEvent.click(screen.getByRole('link', { name: 'Members (1)' }));
+    await userEvent.click(screen.getByRole('link', { name: 'Manage in Users' }));
     expect(await screen.findByRole('heading', { name: 'Users', level: 1 })).toBeInTheDocument();
     expect(window.location.search).toBe('?role=tech');
   });
@@ -148,10 +149,6 @@ describe('Settings › Roles & permissions', () => {
     expect(screen.getByRole('button', { name: /New role/ })).toHaveAccessibleDescription(reason);
     expect(screen.getByRole('checkbox', { name: /Assign technicians/ })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Save role' })).toHaveAccessibleDescription(reason);
-    const sites = screen.getByRole('group', { name: 'Sites' });
-    await userEvent.click(within(sites).getByRole('button', { name: 'All sites' }));
-    expect(within(sites).getByRole('button', { name: 'Tower B' })).toHaveAttribute('aria-pressed', 'true');
-    expect(within(sites).getByRole('button', { name: 'All sites' })).toHaveAccessibleDescription(reason);
   });
 
   it('shows load errors with a retry', async () => {

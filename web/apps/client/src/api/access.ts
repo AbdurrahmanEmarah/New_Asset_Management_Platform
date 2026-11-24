@@ -8,6 +8,9 @@ import type { StatusKind } from '../../../../shared/ui';
 
 export interface Ref { id: string; name: string }
 
+/** A role given to a person. Site scope lives here, never on the role itself. Empty siteIds = all sites. */
+export interface RoleAssignment extends Ref { siteIds: string[] }
+
 export interface AccessMe {
   id: string;
   name: string;
@@ -27,9 +30,8 @@ export interface User {
   name: string | null;
   email: string;
   status: UserStatus;
-  roles: Ref[];
-  /** Sites this person works at. Empty means every site their roles allow. */
-  siteIds: string[];
+  /** Each role this person has, with the sites it applies at for them. */
+  roles: RoleAssignment[];
   lastActiveAt: string | null;
   invitedAt: string | null;
   /** Null when allowed; otherwise a sentence the UI shows as-is (e.g. "The last Owner can't be removed."). */
@@ -44,7 +46,7 @@ export interface UserList {
 
 export interface UserQuery { status: UserFilter; search: string; roleId: string | null }
 
-export interface NewInvite { email: string; roleIds: string[]; siteIds: string[] }
+export interface NewInvite { email: string; roles: { roleId: string; siteIds: string[] }[] }
 
 export interface PermissionArea {
   key: string;
@@ -61,8 +63,6 @@ export interface Role {
   locked: boolean;
   memberCount: number;
   permissions: string[];
-  /** Sites the role applies at. Empty means all sites. */
-  siteIds: string[];
   /** Concurrency token: sent back on save so two admins can't overwrite each other. */
   version: string;
   cannotEditReason: string | null;
@@ -73,7 +73,6 @@ export interface RoleInput {
   name: string;
   description: string;
   permissions: string[];
-  siteIds: string[];
 }
 
 export type Site = Ref;

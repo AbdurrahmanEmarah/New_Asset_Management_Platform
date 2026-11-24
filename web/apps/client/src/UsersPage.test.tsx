@@ -10,8 +10,9 @@ describe('Settings › Users', () => {
   it('lists people with their roles, sites, status and seats', async () => {
     renderWorkspace('/settings/users');
     const sara = await row('Sara Nasser');
-    expect(within(sara).getByText('Maintenance Planner')).toBeInTheDocument();
-    expect(within(sara).getByText('HQ Tower, Tower B')).toBeInTheDocument();
+    expect(within(sara).getByText('Maintenance Planner · HQ Tower, Tower B')).toBeInTheDocument();
+    expect(within(await row('Yusuf Rahman')).getByText('Technician · Tower B, North depot')).toBeInTheDocument();
+    expect(within(await row('Omar Fathi')).getByText('Admin · All sites')).toBeInTheDocument();
     expect(within(sara).getByText('Active')).toBeInTheDocument();
     const layla = await row('layla@gulf-fm.example');
     expect(within(layla).getByText('Invite sent')).toBeInTheDocument();
@@ -45,7 +46,7 @@ describe('Settings › Users', () => {
     expect(await screen.findByText('An invite was sent less than a minute ago. Wait a moment and try again.')).toBeInTheDocument();
   });
 
-  it('invites by email with roles and sites, checking fields first', async () => {
+  it('invites by email with roles and one site choice applied to each, checking fields first', async () => {
     const { api } = renderWorkspace('/settings/users');
     await userEvent.click(await screen.findByRole('button', { name: /Invite people/ }));
     const dialog = screen.getByRole('dialog', { name: 'Invite people' });
@@ -59,12 +60,16 @@ describe('Settings › Users', () => {
     await userEvent.click(within(dialog).getByRole('checkbox', { name: /Technician/ }));
     const sites = within(dialog).getByRole('group', { name: 'Sites they work at' });
     await userEvent.click(within(sites).getByRole('button', { name: 'North depot' }));
-    expect(within(dialog).getByText(/They only see assets and work orders at these sites/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Their roles apply only at these sites/)).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('checkbox', { name: /Storekeeper/ }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Send invite' }));
 
-    expect(api.invite).toHaveBeenCalledWith({ email: 'nadia@gulf-fm.example', roleIds: ['tech'], siteIds: ['north'] });
+    expect(api.invite).toHaveBeenCalledWith({
+      email: 'nadia@gulf-fm.example',
+      roles: [{ roleId: 'tech', siteIds: ['north'] }, { roleId: 'store', siteIds: ['north'] }],
+    });
     expect(await screen.findByText('An invite was sent to nadia@gulf-fm.example.')).toBeInTheDocument();
-    expect(await row('nadia@gulf-fm.example')).toBeInTheDocument();
+    expect(within(await row('nadia@gulf-fm.example')).getByText('Technician · North depot')).toBeInTheDocument();
   });
 
   it('shows a duplicate email next to the field', async () => {

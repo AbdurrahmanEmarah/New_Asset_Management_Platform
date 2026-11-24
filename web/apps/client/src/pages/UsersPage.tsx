@@ -124,7 +124,7 @@ export function UsersPage() {
           <div className="table-scroll">
             <table className="data" style={{ minWidth: 900 }}>
               <thead>
-                <tr><th>Person</th><th>Roles</th><th>Sites</th><th>Status</th><th>Last active</th><th style={{ textAlign: 'right' }}>Actions</th></tr>
+                <tr><th>Person</th><th>Roles and sites</th><th>Status</th><th>Last active</th><th style={{ textAlign: 'right' }}>Actions</th></tr>
               </thead>
               <tbody>
                 {rows.map((u) => {
@@ -140,11 +140,10 @@ export function UsersPage() {
                         </div>
                       </td>
                       <td>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                          {u.roles.map((r) => <span key={r.id} className="role-chip">{r.name}</span>)}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+                          {u.roles.map((r) => <span key={r.id} className="role-chip">{r.name} · {siteNames(sites, r.siteIds)}</span>)}
                         </div>
                       </td>
-                      <td className="muted">{siteNames(sites, u.siteIds)}</td>
                       <td><StatusPill kind={status.kind}>{status.label}</StatusPill></td>
                       <td className="mono muted" style={{ whiteSpace: 'nowrap' }}>
                         {u.lastActiveAt ? when.format(new Date(u.lastActiveAt)) : u.invitedAt ? `Invited ${when.format(new Date(u.invitedAt))}` : '–'}

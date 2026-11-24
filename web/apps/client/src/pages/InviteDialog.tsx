@@ -2,14 +2,17 @@ import { useState, type FormEvent } from 'react';
 import { ApiError } from '../../../../shared/api/http';
 import { errorText, isEmail } from '../../../../shared/errors';
 import { Button, Dialog, Field, Notice } from '../../../../shared/ui';
-import type { NewInvite, Role, Site, User } from '../api/access';
+import type { Role, Site, User } from '../api/access';
 import { useApi } from '../api/context';
 import { SiteChips } from '../components/SiteChips';
 import { isOwner, useMe } from '../me';
 
 type Errors = Partial<Record<'email' | 'roleIds' | 'siteIds', string>>;
 
-export function validateInvite(form: NewInvite): Errors {
+/** The form: one or more roles plus one site choice, applied to each of those roles. */
+interface InviteForm { email: string; roleIds: string[]; siteIds: string[] }
+
+export function validateInvite(form: InviteForm): Errors {
   const errors: Errors = {};
   if (!isEmail(form.email)) errors.email = 'Enter their work email address, e.g. name@company.com.';
   if (form.roleIds.length === 0) errors.roleIds = 'Choose at least one role. It decides what they can do.';
@@ -19,7 +22,7 @@ export function validateInvite(form: NewInvite): Errors {
 export function InviteDialog({ roles, sites, onClose, onInvited }: { roles: Role[]; sites: Site[]; onClose: () => void; onInvited: (u: User) => void }) {
   const api = useApi();
   const me = useMe();
-  const [form, setForm] = useState<NewInvite>({ email: '', roleIds: [], siteIds: [] });
+  const [form, setForm] = useState<InviteForm>({ email: '', roleIds: [], siteIds: [] });
   const [errors, setErrors] = useState<Errors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -38,10 +41,10 @@ export function InviteDialog({ roles, sites, onClose, onInvited }: { roles: Role
     if (Object.keys(found).length) return;
     setBusy(true);
     try {
-      onInvited(await api.invite({ ...form, email: form.email.trim() }));
+      onInvited(await api.invite({ email: form.email.trim(), roles: form.roleIds.map((roleId) => ({ roleId, siteIds: form.siteIds })) }));
     } catch (err) {
       if (err instanceof ApiError && Object.keys(err.fieldErrors).length) {
-        setErrors({ email: err.field('email'), roleIds: err.field('roleIds'), siteIds: err.field('siteIds') });
+        setErrors({ email: err.field('email'), roleIds: err.field('roles') });
       } else {
         setFormError(errorText(err, 'The invite could not be sent.'));
       }
@@ -83,9 +86,8 @@ export function InviteDialog({ roles, sites, onClose, onInvited }: { roles: Role
           <span style={{ fontSize: 13, fontWeight: 600 }}>Sites</span>
           <SiteChips label="Sites they work at" sites={sites} value={form.siteIds} onChange={(siteIds) => setForm({ ...form, siteIds })} />
           <span className="field-hint">
-            {form.siteIds.length === 0 ? 'They can work at every site their roles allow.' : 'They only see assets and work orders at these sites, even if a role allows more.'}
+            {form.siteIds.length === 0 ? 'Their roles apply at every site.' : 'Their roles apply only at these sites. Assets and work orders elsewhere are hidden from them.'}
           </span>
-          {errors.siteIds ? <span className="field-error">{errors.siteIds}</span> : null}
         </div>
 
         <div className="dialog-actions">

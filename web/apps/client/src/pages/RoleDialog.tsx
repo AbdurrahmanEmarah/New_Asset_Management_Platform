@@ -30,7 +30,6 @@ export function RoleDialog({ mode, onClose, onCreated }: { mode: RoleDialogMode;
         name: name.trim(),
         description: description.trim(),
         permissions: copy ? copy.draft.permissions : [],
-        siteIds: copy ? copy.draft.siteIds : [],
         ...(copy ? { copyFromRoleId: copy.source.id } : {}),
       });
       onCreated(role);
@@ -44,7 +43,7 @@ export function RoleDialog({ mode, onClose, onCreated }: { mode: RoleDialogMode;
   return (
     <Dialog
       title={copy ? `Duplicate ${copy.source.name}` : 'New role'}
-      description={copy ? 'The copy starts with the same permissions and sites. Nobody has it until you give it to them.' : 'The role starts with no permissions. Tick what it allows after you create it.'}
+      description={copy ? 'The copy starts with the same permissions. Nobody has it until you give it to them.' : 'The role starts with no permissions. Tick what it allows after you create it.'}
       onClose={onClose}
     >
       <form onSubmit={submit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
