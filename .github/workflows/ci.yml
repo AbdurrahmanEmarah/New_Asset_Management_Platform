@@ -36,6 +36,12 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
+      - name: Cache NuGet packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', 'dotnet-tools.json', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
       - name: Restore
         run: dotnet restore Inventra.slnx
       - name: Build
@@ -67,3 +73,76 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npx vite build --config apps/admin/vite.config.ts
+
+  images:
+    name: Container images and database logins
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        # Azure Flexible Server runs 17; the logins test should match it.
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+      - name: Cache NuGet packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', 'dotnet-tools.json', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+      - name: Build images (not pushed)
+        run: scripts/build-images.sh --tag ci
+      - name: Gateway image starts
+        run: |
+          docker run -d --name gateway -p 18000:8080 \
+            -e Auth__Platform__Authority=https://login.invalid/realms/inventra-platform inventra/gateway:ci
+          for _ in $(seq 1 30); do curl -fsS http://localhost:18000/alive && exit 0; sleep 1; done
+          docker logs gateway; exit 1
+      - name: Least-privilege database logins
+        run: scripts/db/test-least-privilege.sh ci
+
+  infra:
+    name: Bicep and scripts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BICEP_VERSION: v0.48.1
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Bicep
+        run: |
+          curl -fsSLo /usr/local/bin/bicep "https://github.com/Azure/bicep/releases/download/$BICEP_VERSION/bicep-linux-x64"
+          chmod +x /usr/local/bin/bicep
+          bicep --version
+      - name: Lint and build Bicep (warnings fail)
+        run: |
+          set -o pipefail
+          for cmd in "lint infra/main.bicep" "build infra/main.bicep --stdout" "build-params infra/main.staging.bicepparam --stdout"; do
+            # shellcheck disable=SC2086
+            bicep $cmd >/dev/null 2>bicep.log || { cat bicep.log; exit 1; }
+            if grep -E "Warning|Error" bicep.log; then exit 1; fi
+          done
+      - name: Shell scripts
+        run: shellcheck scripts/*.sh scripts/*/*.sh infra/db/entrypoint.sh
+      - name: PowerShell scripts parse
+        shell: pwsh
+        run: |
+          $failed = $false
+          Get-ChildItem scripts -Recurse -Filter *.ps1 | ForEach-Object {
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$null, [ref]$errors) | Out-Null
+            if ($errors) { $errors | ForEach-Object { Write-Error "$($_.Extent.File):$($_.Extent.StartLineNumber) $($_.Message)" }; $failed = $true }
+          }
+          if ($failed) { exit 1 }
