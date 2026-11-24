@@ -75,7 +75,7 @@ Inventra is a multi-tenant asset management SaaS. Each client company manages it
 
 ## The team
 
-The Lead session is the conversation with the owner. Five team sessions each own a part of the repo: Backend (`src/Services`, `src/BuildingBlocks`, `src/Gateway`, service tests), Web (`web/`), Mobile (`mobile/`), DevOps (`.github`, `infra`, `scripts`, `docs/deployment`) and QA (`tests/EndToEnd`, `docs/qa`).
+The Lead session is the conversation with the owner. Five team sessions each own a part of the repo: Backend (`src/Services`, `src/BuildingBlocks`, `src/Gateway`, service tests), Web (`web/`), Mobile (`mobile/`, Expo field app; see `mobile/README.md`), DevOps (`.github`, `infra`, `scripts`, `docs/deployment`) and QA (`tests/EndToEnd`, `docs/qa`; the browser suite runs in CI on main, integration and QA branches, and isn't in `Inventra.slnx`).
 - Team sessions push `claude/<area>-<topic>` branches and report to the Lead.
 - The Lead merges them into `claude/integration-NN`, tests everything together and sends the owner one patch per milestone.
 - All sessions share the owner's 5-hour usage limit, so they run in waves and keep turns lean.
@@ -107,6 +107,7 @@ See `docs/deployment/`. The deploy workflow stays switched off until the reposit
 
 - **vitest 4.1.x** crashes `npm install` on npm 10 ("Cannot read properties of null (reading 'edgesOut')") because of an optional peer. Stay on 4.0.x until npm is fixed.
 - **Keycloak image:** comes from quay.io, which Claude's cloud container can't reach. For local runs there, pull `docker.io/keycloak/keycloak:<tag>` and tag it as `quay.io/keycloak/keycloak:<tag>`.
+- **Docker Hub rate limits:** a docker.io pull can hit 429 and still exit 0, leaving the image missing. Check `docker images` after pulling in the cloud container.
 - **`dotnet ef -c` means `--context`**, not configuration. Write `--configuration Release` (this broke the first CI run).
 - **Bicep:** a parameter named `environment` shadows `environment()`, so use `az.environment()`. Azure PostgreSQL's admin has CREATEROLE but isn't a superuser.
 - **Usage limit:** five sessions at once used the 5-hour limit in about 30 minutes. Run them in waves.

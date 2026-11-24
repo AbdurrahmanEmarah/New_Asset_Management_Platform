@@ -67,6 +67,8 @@ var gateway = builder.AddProject<Projects.Inventra_Gateway>("gateway")
     .WithEnvironment("Auth__Tenant__RequireHttpsMetadata", "false")
     .WithEnvironment("Cors__Origins__0", "http://localhost:" + adminWebPort)
     .WithEnvironment("Cors__Origins__1", "http://localhost:" + clientWebPort)
+    // The field app's web build (npx expo start --web).
+    .WithEnvironment("Cors__Origins__2", "http://localhost:8081")
     .WithExternalHttpEndpoints();
 
 builder.AddViteApp("admin-web", "../../../web", "dev:admin")

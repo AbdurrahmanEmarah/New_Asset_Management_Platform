@@ -97,7 +97,8 @@
       "serviceAccountsEnabled": false,
       "redirectUris": [
         "http://localhost:8081/*",
-        "inventra://auth/callback"
+        "inventra://auth/callback",
+        "exp://*"
       ],
       "webOrigins": [
         "http://localhost:8081"
