@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react';
 import { NavLink } from 'react-router';
-import { Button, ThemeSwitch } from '../../../../shared/ui';
 import { roleLabel, useMe } from '../me';
-import { AuditIcon, BillingIcon, ClientsIcon, LogoMark, MegaphoneIcon, PlansIcon, PulseIcon, ShieldIcon, TemplatesIcon } from './Icons';
+import { AuditIcon, BillingIcon, Button, ClientsIcon, LogoMark, MegaphoneIcon, PlansIcon, PulseIcon, ShieldIcon, TemplatesIcon, ThemeSwitch } from '../../../../shared/ui';
 
 interface NavItem {
   label: string;
@@ -25,7 +24,7 @@ export const NAV: { heading: string; items: NavItem[] }[] = [
   {
     heading: 'Operations',
     items: [
-      { label: 'Support access', icon: <ShieldIcon />, comingIn: 'Support access arrives with the Access service (next release).' },
+      { label: 'Support access', icon: <ShieldIcon />, to: '/support' },
       { label: 'Health & jobs', icon: <PulseIcon />, comingIn: 'Health & jobs arrives in a later release. Use the Aspire dashboard for now.' },
       { label: 'Audit log', icon: <AuditIcon />, to: '/audit' },
       { label: 'Announcements', icon: <MegaphoneIcon />, comingIn: 'Announcements arrive in a later release.' },

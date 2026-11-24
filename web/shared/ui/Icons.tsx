@@ -18,3 +18,7 @@ export function LogoMark({ size = 28, fill = 'currentColor' }: { size?: number; 
     </svg>
   );
 }
+export const UsersIcon = () => <svg {...base}><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c1.8.7 3 2.5 3.5 5.2" /></svg>;
+export const KeyIcon = () => <svg {...base}><circle cx="8" cy="15" r="4" /><path d="M11 12l9-9M17 6l3 3M15 8l2 2" /></svg>;
+export const LockIcon = () => <svg {...base} width={14} height={14}><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>;
+export const ChevronIcon = () => <svg {...base} width={14} height={14}><path d="M6 9l6 6 6-6" /></svg>;
