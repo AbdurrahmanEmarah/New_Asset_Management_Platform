@@ -1,0 +1,84 @@
+/*
+ * Inventra design tokens. Components use only these semantic names.
+ * Light = "Field Kit", dark = "Control Room". The no-flash script in each index.html
+ * sets data-theme on <html> before the first paint, so no media query is needed here.
+ * Source: the Unified theme board on the design canvas.
+ */
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+  --bg: #fbfbf8;
+  --surface: #ffffff;
+  --sunken: #f4f6f4;
+  --line: #d9dfdb;
+  --line-soft: #ebefec;
+  --text: #10261f;
+  --muted: #4f5f59;
+  --action: #13493a;
+  --on-action: #ffffff;
+  --action-soft: #e3eee9;
+  --brand: #f2c230;
+  --brand-ink: #10261f;
+  --focus: #13493a;
+  --side: #10261f;
+  --side-text: #dce5e1;
+  --side-muted: #9fb1aa;
+  --side-on: #1c3a31;
+  --scrim: rgb(16 38 31 / 45%);
+  --ok: #155c39;
+  --ok-bg: #ddf0e5;
+  --warn: #6e4c00;
+  --warn-bg: #fbefc4;
+  --fault: #951b12;
+  --fault-bg: #fbe0dd;
+  --info: #1a4f8c;
+  --info-bg: #dee9f7;
+  --none: #3f4d48;
+  --none-bg: #e9edeb;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0f1216;
+  --surface: #171b21;
+  --sunken: #13171c;
+  --line: #2b323c;
+  --line-soft: #222830;
+  --text: #e7eaee;
+  --muted: #9aa3ae;
+  --action: #f0a53a;
+  --on-action: #14110b;
+  --action-soft: #2c2416;
+  --brand: #f0a53a;
+  --brand-ink: #14110b;
+  --focus: #f0a53a;
+  --side: #0b0e11;
+  --side-text: #dde2e8;
+  --side-muted: #8b95a1;
+  --side-on: #1f252d;
+  --scrim: rgb(0 0 0 / 60%);
+  --ok: #6fd39a;
+  --ok-bg: #16301f;
+  --warn: #ebc95a;
+  --warn-bg: #352b12;
+  --fault: #f7877b;
+  --fault-bg: #3a1a18;
+  --info: #86bcf5;
+  --info-bg: #162a40;
+  --none: #aeb6c0;
+  --none-bg: #232930;
+}
+
+:root {
+  --font-sans: 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'DM Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --radius: 6px;
+  --radius-lg: 8px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+}

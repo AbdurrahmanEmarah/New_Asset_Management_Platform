@@ -1,0 +1,18 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.6.5">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <UserSecretsId>inventra-apphost</UserSecretsId>
+    <IsAspireHost>true</IsAspireHost>
+    <!-- The Aspire CLI bundle is optional; "dotnet run" works without it. -->
+    <MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);ASPIRE010</MSBuildWarningsAsMessages>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" />
+    <PackageReference Include="Aspire.Hosting.Keycloak" />
+    <PackageReference Include="Aspire.Hosting.JavaScript" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Gateway\Inventra.Gateway\Inventra.Gateway.csproj" />
+    <ProjectReference Include="..\..\Services\Tenancy\Inventra.Tenancy\Inventra.Tenancy.csproj" />
+  </ItemGroup>
+</Project>

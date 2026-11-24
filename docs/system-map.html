@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inventra System Map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Public+Sans:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: one reading column; diagrams break out wider and scroll on their own if needed. Field Kit light / Control Room dark. */
+:root{
+  --bg:#FBFBF8;--surface:#FFFFFF;--sunken:#F4F6F4;--line:#D9DFDB;--line-soft:#EBEFEC;
+  --text:#10261F;--muted:#4F5F59;--action:#13493A;--on-action:#FFFFFF;--brand:#F2C230;--brand-ink:#10261F;
+  --hi:#13493A;--hi-soft:#E3EEE9;
+  --ok:#155C39;--ok-bg:#DDF0E5;--warn:#6E4C00;--warn-bg:#FBEFC4;--fault:#951B12;--fault-bg:#FBE0DD;--info:#1A4F8C;--info-bg:#DEE9F7;
+  --sans:'Public Sans',system-ui,-apple-system,'Segoe UI',sans-serif;--mono:'DM Mono',ui-monospace,'Cascadia Mono',Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F1216;--surface:#171B21;--sunken:#13171C;--line:#2B323C;--line-soft:#222830;
+  --text:#E7EAEE;--muted:#9AA3AE;--action:#F0A53A;--on-action:#14110B;--brand:#F0A53A;--brand-ink:#14110B;
+  --hi:#F0A53A;--hi-soft:#2C2416;
+  --ok:#6FD39A;--ok-bg:#16301F;--warn:#EBC95A;--warn-bg:#352B12;--fault:#F7877B;--fault-bg:#3A1A18;--info:#86BCF5;--info-bg:#162A40;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F1216;--surface:#171B21;--sunken:#13171C;--line:#2B323C;--line-soft:#222830;
+  --text:#E7EAEE;--muted:#9AA3AE;--action:#F0A53A;--on-action:#14110B;--brand:#F0A53A;--brand-ink:#14110B;
+  --hi:#F0A53A;--hi-soft:#2C2416;
+  --ok:#6FD39A;--ok-bg:#16301F;--warn:#EBC95A;--warn-bg:#352B12;--fault:#F7877B;--fault-bg:#3A1A18;--info:#86BCF5;--info-bg:#162A40;color-scheme:dark}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.55}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:40px 80px;display:flex;flex-direction:column;gap:56px}
+header.top{display:flex;flex-wrap:wrap;gap:16px 32px;align-items:flex-end;justify-content:space-between;border-bottom:6px solid var(--brand);padding-bottom:20px}
+.brand{display:flex;align-items:center;gap:12px}
+.brand b{font-size:28px;font-weight:800;letter-spacing:-.8px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase}
+h1{margin:4px 0 0;font-size:32px;line-height:1.15;font-weight:800;letter-spacing:-.6px;text-wrap:balance}
+h2{margin:0;font-size:24px;font-weight:800;letter-spacing:-.4px;text-wrap:balance}
+h3{margin:0;font-size:17px;font-weight:700}
+p{margin:0;max-width:68ch}
+section{display:flex;flex-direction:column;gap:18px}
+.lede{color:var(--muted);max-width:68ch}
+.status{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.card ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:15px}
+.pill{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:700;padding:3px 9px;border-radius:6px;align-self:flex-start;white-space:nowrap}
+.pill i{width:8px;height:8px;background:currentColor;display:inline-block}
+.p-ok{background:var(--ok-bg);color:var(--ok)}.p-ok i{border-radius:50%}
+.p-warn{background:var(--warn-bg);color:var(--warn)}.p-warn i{clip-path:polygon(50% 0,100% 100%,0 100%)}
+.p-info{background:var(--info-bg);color:var(--info)}.p-info i{border-radius:50%;background:transparent;box-shadow:inset 0 0 0 2px currentColor}
+.p-fault{background:var(--fault-bg);color:var(--fault)}.p-fault i{border-radius:1px}
+figure{margin:0;display:flex;flex-direction:column;gap:10px}
+.scroll{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
+.scroll svg{display:block;min-width:860px;width:100%;height:auto}
+figcaption{font-size:14px;color:var(--muted);max-width:80ch}
+/* SVG classes */
+.bx{fill:var(--surface);stroke:var(--line);stroke-width:1.5}
+.bx-s{fill:var(--sunken);stroke:var(--line);stroke-width:1.5}
+.bx-hi{fill:var(--hi-soft);stroke:var(--hi);stroke-width:2}
+.bx-warn{fill:var(--warn-bg);stroke:var(--warn);stroke-width:1.5}
+.t{fill:var(--text);font-family:var(--sans);font-size:13px;font-weight:600}
+.tb{fill:var(--text);font-family:var(--sans);font-size:14px;font-weight:800}
+.tm{fill:var(--muted);font-family:var(--mono);font-size:11px}
+.tl{fill:var(--muted);font-family:var(--sans);font-size:11.5px;font-weight:600}
+.tw{fill:var(--warn);font-family:var(--sans);font-size:11.5px;font-weight:700}
+.ln{stroke:var(--muted);stroke-width:1.5;fill:none}
+.ln-hi{stroke:var(--hi);stroke-width:2;fill:none}
+.ln-d{stroke:var(--muted);stroke-width:1.5;fill:none;stroke-dasharray:5 4}
+.ah{fill:var(--muted)}
+.ah-hi{fill:var(--hi)}
+.lane{fill:var(--sunken)}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+th{font-family:var(--mono);font-size:11px;letter-spacing:1px;color:var(--muted);font-weight:500;background:var(--sunken);text-transform:uppercase}
+td code,p code,li code{font-family:var(--mono);font-size:13px;background:var(--sunken);padding:1px 5px;border-radius:4px}
+.tablebox{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.tablebox table{min-width:640px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
+.log{display:flex;flex-direction:column;gap:0;border-left:2px solid var(--line);padding-left:18px}
+.log div{padding:6px 0;font-size:15px}
+.log time{font-family:var(--mono);font-size:12px;color:var(--muted);display:block}
+a{color:var(--action)}
+a:focus-visible{outline:2px solid var(--action);outline-offset:2px}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="brand">
+        <svg width="34" height="34" viewBox="0 0 40 40" aria-hidden="true"><path d="M20 3l15 8.5v17L20 37 5 28.5v-17z" fill="var(--text)"/><circle cx="20" cy="20" r="6" fill="var(--brand)"/></svg>
+        <b>inventra</b>
+      </div>
+      <h1>System map</h1>
+    </div>
+    <div style="text-align:right">
+      <div class="eyebrow">Living document · updated every step</div>
+      <div style="font-family:var(--mono);font-size:14px">Last update: 24 Nov 2026 · Step 1 (design) complete</div>
+    </div>
+  </header>
+
+  <section aria-labelledby="where">
+    <h2 id="where">Where we are</h2>
+    <div class="status">
+      <div class="card">
+        <span class="pill p-ok"><i></i>Done</span>
+        <ul>
+          <li>Product name: Inventra</li>
+          <li>Repo attached and empty, ready for patch 01</li>
+          <li>Theme: Field Kit (light) and Control Room (dark), the user picks</li>
+          <li>Account model: platform admin vs client roles</li>
+          <li>All 7 key screens mocked up in light and dark (see the table below)</li>
+        </ul>
+      </div>
+      <div class="card">
+        <span class="pill p-info"><i></i>Waiting on you</span>
+        <ul>
+          <li>Review the mockups and say what to change</li>
+          <li>Say "go" to start Step 2 (architecture docs) and the first code patch</li>
+        </ul>
+      </div>
+      <div class="card">
+        <span class="pill p-warn"><i></i>Next</span>
+        <ul>
+          <li>Step 2: architecture docs and <code>CLAUDE.md</code> in the repo</li>
+          <li>Step 3.1: foundation patch (skeleton, CI, tenancy, access, web shell)</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="map">
+    <h2 id="map">How the pieces connect</h2>
+    <p class="lede">Read top to bottom: people use one of three apps. Every call goes through one gateway with a sign-in token. Services own their data and talk to each other only through events.</p>
+    <figure>
+      <div class="scroll">
+        <svg viewBox="0 0 1100 700" role="img" aria-label="People use the admin console, the web app or the field app. All calls pass through the gateway with a token from the identity provider, then reach twelve services. Services publish events on a message bus through an outbox and each owns its own PostgreSQL database with tenant row-level security.">
+          <defs>
+            <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="ah"/></marker>
+            <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="ah-hi"/></marker>
+          </defs>
+
+          <!-- Row 1: people -->
+          <text x="20" y="22" class="tm">PEOPLE</text>
+          <rect x="20" y="34" width="230" height="50" rx="6" class="bx-s"/><text x="135" y="56" text-anchor="middle" class="t">Platform admin (you)</text><text x="135" y="73" text-anchor="middle" class="tm">2-step sign-in</text>
+          <rect x="300" y="34" width="230" height="50" rx="6" class="bx-s"/><text x="415" y="56" text-anchor="middle" class="t">Client office staff</text><text x="415" y="73" text-anchor="middle" class="tm">owner, admin, planners…</text>
+          <rect x="580" y="34" width="230" height="50" rx="6" class="bx-s"/><text x="695" y="56" text-anchor="middle" class="t">Technicians</text><text x="695" y="73" text-anchor="middle" class="tm">on site, often offline</text>
+          <rect x="850" y="34" width="230" height="50" rx="6" class="bx-s"/><text x="965" y="56" text-anchor="middle" class="t">Client's other systems</text><text x="965" y="73" text-anchor="middle" class="tm">ERP, BMS, finance</text>
+
+          <!-- Row 2: apps -->
+          <text x="20" y="130" class="tm">APPS</text>
+          <rect x="20" y="142" width="230" height="54" rx="6" class="bx"/><text x="135" y="166" text-anchor="middle" class="tb">Admin console</text><text x="135" y="184" text-anchor="middle" class="tm">admin.inventra · React</text>
+          <rect x="300" y="142" width="230" height="54" rx="6" class="bx"/><text x="415" y="166" text-anchor="middle" class="tb">Web app</text><text x="415" y="184" text-anchor="middle" class="tm">{client}.inventra · React</text>
+          <rect x="580" y="142" width="230" height="54" rx="6" class="bx"/><text x="695" y="166" text-anchor="middle" class="tb">Field app</text><text x="695" y="184" text-anchor="middle" class="tm">Expo · offline queue · scan</text>
+          <rect x="850" y="142" width="230" height="54" rx="6" class="bx"/><text x="965" y="166" text-anchor="middle" class="tb">Public API</text><text x="965" y="184" text-anchor="middle" class="tm">API keys · webhooks out</text>
+          <line x1="135" y1="84" x2="135" y2="140" class="ln" marker-end="url(#a)"/>
+          <line x1="415" y1="84" x2="415" y2="140" class="ln" marker-end="url(#a)"/>
+          <line x1="695" y1="84" x2="695" y2="140" class="ln" marker-end="url(#a)"/>
+          <line x1="965" y1="84" x2="965" y2="140" class="ln" marker-end="url(#a)" marker-start="url(#a)"/>
+
+          <!-- Row 3: gateway + identity -->
+          <rect x="20" y="252" width="790" height="48" rx="6" class="bx-hi"/>
+          <text x="415" y="274" text-anchor="middle" class="tb">Gateway</text>
+          <text x="415" y="291" text-anchor="middle" class="tm">checks the token · finds the client from the sub-domain · rate limits</text>
+          <rect x="850" y="252" width="230" height="48" rx="6" class="bx"/>
+          <text x="965" y="274" text-anchor="middle" class="tb">Identity</text>
+          <text x="965" y="291" text-anchor="middle" class="tm">Keycloak local · Entra in Azure</text>
+          <line x1="135" y1="196" x2="135" y2="250" class="ln-hi" marker-end="url(#ah)"/>
+          <line x1="415" y1="196" x2="415" y2="250" class="ln-hi" marker-end="url(#ah)"/>
+          <line x1="695" y1="196" x2="695" y2="250" class="ln-hi" marker-end="url(#ah)"/>
+          <path d="M965 196 V222 H760 V250" class="ln-hi" marker-end="url(#ah)"/>
+          <text x="425" y="230" class="tl">HTTPS + token</text>
+          <path d="M810 160 H830 V276 H848" class="ln-d" marker-end="url(#a)"/>
+          <text x="836" y="236" class="tl" transform="rotate(-90 836 236)" text-anchor="middle">sign in</text>
+
+          <!-- Row 4: services -->
+          <text x="20" y="346" class="tm">SERVICES · .NET 10 · EACH CHECKS PERMISSION + SITE SCOPE</text>
+          <g>
+            <rect x="20" y="358" width="166" height="50" rx="6" class="bx"/><text x="103" y="380" text-anchor="middle" class="t">Tenancy &amp; Admin</text><text x="103" y="397" text-anchor="middle" class="tm">clients, plans, limits</text>
+            <rect x="200" y="358" width="166" height="50" rx="6" class="bx"/><text x="283" y="380" text-anchor="middle" class="t">Access</text><text x="283" y="397" text-anchor="middle" class="tm">users, roles, sites</text>
+            <rect x="380" y="358" width="166" height="50" rx="6" class="bx"/><text x="463" y="380" text-anchor="middle" class="t">Asset Catalog</text><text x="463" y="397" text-anchor="middle" class="tm">types, fields, presets</text>
+            <rect x="560" y="358" width="166" height="50" rx="6" class="bx"/><text x="643" y="380" text-anchor="middle" class="t">Assets</text><text x="643" y="397" text-anchor="middle" class="tm">register, locations</text>
+            <rect x="740" y="358" width="166" height="50" rx="6" class="bx"/><text x="823" y="380" text-anchor="middle" class="t">Work Orders</text><text x="823" y="397" text-anchor="middle" class="tm">jobs, PM schedules</text>
+            <rect x="920" y="358" width="160" height="50" rx="6" class="bx"/><text x="1000" y="380" text-anchor="middle" class="t">Inventory</text><text x="1000" y="397" text-anchor="middle" class="tm">parts, stock</text>
+            <rect x="20" y="420" width="166" height="50" rx="6" class="bx"/><text x="103" y="442" text-anchor="middle" class="t">Documents</text><text x="103" y="459" text-anchor="middle" class="tm">files, photos</text>
+            <rect x="200" y="420" width="166" height="50" rx="6" class="bx"/><text x="283" y="442" text-anchor="middle" class="t">Notifications</text><text x="283" y="459" text-anchor="middle" class="tm">email, push, in-app</text>
+            <rect x="380" y="420" width="166" height="50" rx="6" class="bx"/><text x="463" y="442" text-anchor="middle" class="t">Search</text><text x="463" y="459" text-anchor="middle" class="tm">one box, all records</text>
+            <rect x="560" y="420" width="166" height="50" rx="6" class="bx"/><text x="643" y="442" text-anchor="middle" class="t">Audit</text><text x="643" y="459" text-anchor="middle" class="tm">who did what, when</text>
+            <rect x="740" y="420" width="166" height="50" rx="6" class="bx"/><text x="823" y="442" text-anchor="middle" class="t">Integration</text><text x="823" y="459" text-anchor="middle" class="tm">import, API, webhooks</text>
+            <rect x="920" y="420" width="160" height="50" rx="6" class="bx"/><text x="1000" y="442" text-anchor="middle" class="t">Reporting</text><text x="1000" y="459" text-anchor="middle" class="tm">dashboards, exports</text>
+          </g>
+          <line x1="415" y1="300" x2="415" y2="356" class="ln-hi" marker-end="url(#ah)"/>
+          <text x="425" y="333" class="tl">routes to the right service</text>
+
+          <!-- Row 5: bus -->
+          <rect x="20" y="508" width="1060" height="44" rx="6" class="bx-s"/>
+          <text x="550" y="528" text-anchor="middle" class="tb">Message bus</text>
+          <text x="550" y="544" text-anchor="middle" class="tm">events saved in the same transaction (outbox), then delivered · RabbitMQ local · Azure Service Bus</text>
+          <line x1="283" y1="470" x2="283" y2="506" class="ln" marker-end="url(#a)" marker-start="url(#a)"/>
+          <line x1="643" y1="470" x2="643" y2="506" class="ln" marker-end="url(#a)" marker-start="url(#a)"/>
+          <line x1="823" y1="470" x2="823" y2="506" class="ln" marker-end="url(#a)" marker-start="url(#a)"/>
+          <text x="660" y="492" class="tl">publish / subscribe</text>
+
+          <!-- Row 6: data -->
+          <text x="20" y="592" class="tm">DATA &amp; OUTSIDE SERVICES</text>
+          <rect x="20" y="604" width="520" height="56" rx="6" class="bx"/>
+          <text x="280" y="627" text-anchor="middle" class="tb">PostgreSQL · one database per service</text>
+          <text x="280" y="645" text-anchor="middle" class="tm">row-level security: a query only ever sees its own client's rows</text>
+          <rect x="560" y="604" width="166" height="56" rx="6" class="bx"/><text x="643" y="627" text-anchor="middle" class="t">Blob storage</text><text x="643" y="645" text-anchor="middle" class="tm">files, photos</text>
+          <rect x="740" y="604" width="166" height="56" rx="6" class="bx"/><text x="823" y="627" text-anchor="middle" class="t">Email / SMS / push</text><text x="823" y="645" text-anchor="middle" class="tm">provider to choose</text>
+          <rect x="920" y="604" width="160" height="56" rx="6" class="bx"/><text x="1000" y="627" text-anchor="middle" class="t">Key Vault</text><text x="1000" y="645" text-anchor="middle" class="tm">secrets, keys</text>
+          <line x1="280" y1="552" x2="280" y2="602" class="ln" marker-end="url(#a)"/>
+          <text x="290" y="582" class="tl">each service writes only its own DB</text>
+        </svg>
+      </div>
+      <figcaption>The highlighted path is every request: app → gateway → service. Services never read each other's databases. When Assets needs to know that a work order closed, Work Orders publishes an event and Assets updates its own copy of the history.</figcaption>
+    </figure>
+  </section>
+
+  <section aria-labelledby="flows">
+    <h2 id="flows">Main workflows</h2>
+
+    <figure>
+      <h3>1 · Onboarding a new client</h3>
+      <div class="scroll">
+        <svg viewBox="0 0 1100 170" role="img" aria-label="You create the client in the admin console; Tenancy saves it with its plan limits and publishes ClientCreated; Access creates the owner account and emails an invite; the owner accepts and sets up sites, asset types and users; their staff start working.">
+          <defs><marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="ah"/></marker></defs>
+          <g>
+            <text x="90" y="20" text-anchor="middle" class="tl">YOU</text>
+            <rect x="10" y="30" width="160" height="70" rx="6" class="bx"/><text x="90" y="58" text-anchor="middle" class="t">Create client</text><text x="90" y="78" text-anchor="middle" class="tm">name, plan, owner email</text>
+            <text x="90" y="124" text-anchor="middle" class="tm">Admin console</text>
+            <text x="274" y="20" text-anchor="middle" class="tl">SYSTEM</text>
+            <rect x="194" y="30" width="160" height="70" rx="6" class="bx"/><text x="274" y="58" text-anchor="middle" class="t">Save client + limits</text><text x="274" y="78" text-anchor="middle" class="tm">event: ClientCreated</text>
+            <text x="274" y="124" text-anchor="middle" class="tm">Tenancy</text>
+            <text x="458" y="20" text-anchor="middle" class="tl">SYSTEM</text>
+            <rect x="378" y="30" width="160" height="70" rx="6" class="bx"/><text x="458" y="58" text-anchor="middle" class="t">Create owner + invite</text><text x="458" y="78" text-anchor="middle" class="tm">built-in roles copied in</text>
+            <text x="458" y="124" text-anchor="middle" class="tm">Access · Notifications</text>
+            <text x="642" y="20" text-anchor="middle" class="tl">CLIENT OWNER</text>
+            <rect x="562" y="30" width="160" height="70" rx="6" class="bx"/><text x="642" y="58" text-anchor="middle" class="t">Accept invite</text><text x="642" y="78" text-anchor="middle" class="tm">set password, 2-step</text>
+            <text x="642" y="124" text-anchor="middle" class="tm">Identity</text>
+            <text x="826" y="20" text-anchor="middle" class="tl">CLIENT ADMIN</text>
+            <rect x="746" y="30" width="160" height="70" rx="6" class="bx"/><text x="826" y="58" text-anchor="middle" class="t">Set up workspace</text><text x="826" y="78" text-anchor="middle" class="tm">sites, types, import</text>
+            <text x="826" y="124" text-anchor="middle" class="tm">Catalog · Assets · Integration</text>
+            <text x="1010" y="20" text-anchor="middle" class="tl">CLIENT STAFF</text>
+            <rect x="930" y="30" width="160" height="70" rx="6" class="bx-hi"/><text x="1010" y="58" text-anchor="middle" class="t">Invite users</text><text x="1010" y="78" text-anchor="middle" class="tm">assign roles + sites</text>
+            <text x="1010" y="124" text-anchor="middle" class="tm">Access</text>
+          </g>
+          <line x1="170" y1="65" x2="192" y2="65" class="ln" marker-end="url(#b)"/>
+          <line x1="354" y1="65" x2="376" y2="65" class="ln" marker-end="url(#b)"/>
+          <line x1="538" y1="65" x2="560" y2="65" class="ln" marker-end="url(#b)"/>
+          <line x1="722" y1="65" x2="744" y2="65" class="ln" marker-end="url(#b)"/>
+          <line x1="906" y1="65" x2="928" y2="65" class="ln" marker-end="url(#b)"/>
+          <text x="10" y="156" class="tw">Limit check: inviting past the plan's user limit is blocked, and the client is told to upgrade.</text>
+        </svg>
+      </div>
+      <figcaption>After step 3 your part is done. Everything from the invite onward is the client's own work.</figcaption>
+    </figure>
+
+    <figure>
+      <h3>2 · From a reported fault to a fixed asset</h3>
+      <div class="scroll">
+        <svg viewBox="0 0 1100 170" role="img" aria-label="A requester reports a fault by scanning the asset; a work order is created; a planner assigns a technician; the technician works in the field app even offline; on completion parts are deducted from stock and the asset history and status update; the requester is notified.">
+          <defs><marker id="c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="ah"/></marker></defs>
+          <text x="90" y="20" text-anchor="middle" class="tl">REQUESTER</text>
+          <rect x="10" y="30" width="160" height="70" rx="6" class="bx"/><text x="90" y="58" text-anchor="middle" class="t">Report a fault</text><text x="90" y="78" text-anchor="middle" class="tm">scan QR, add photo</text>
+          <text x="90" y="124" text-anchor="middle" class="tm">Web / field app</text>
+          <text x="274" y="20" text-anchor="middle" class="tl">SYSTEM</text>
+          <rect x="194" y="30" width="160" height="70" rx="6" class="bx"/><text x="274" y="58" text-anchor="middle" class="t">Work order: Requested</text><text x="274" y="78" text-anchor="middle" class="tm">priority from asset type</text>
+          <text x="274" y="124" text-anchor="middle" class="tm">Work Orders</text>
+          <text x="458" y="20" text-anchor="middle" class="tl">PLANNER</text>
+          <rect x="378" y="30" width="160" height="70" rx="6" class="bx"/><text x="458" y="58" text-anchor="middle" class="t">Approve + assign</text><text x="458" y="78" text-anchor="middle" class="tm">only techs at that site</text>
+          <text x="458" y="124" text-anchor="middle" class="tm">Work Orders · Access</text>
+          <text x="642" y="20" text-anchor="middle" class="tl">TECHNICIAN</text>
+          <rect x="562" y="30" width="160" height="70" rx="6" class="bx-hi"/><text x="642" y="58" text-anchor="middle" class="t">Do the job</text><text x="642" y="78" text-anchor="middle" class="tm">checklist, readings, parts</text>
+          <text x="642" y="124" text-anchor="middle" class="tm">Field app (works offline)</text>
+          <text x="826" y="20" text-anchor="middle" class="tl">SYSTEM</text>
+          <rect x="746" y="30" width="160" height="70" rx="6" class="bx"/><text x="826" y="58" text-anchor="middle" class="t">Complete → events</text><text x="826" y="78" text-anchor="middle" class="tm">WorkOrderCompleted</text>
+          <text x="826" y="124" text-anchor="middle" class="tm">Work Orders → bus</text>
+          <text x="1010" y="20" text-anchor="middle" class="tl">SYSTEM</text>
+          <rect x="930" y="30" width="160" height="70" rx="6" class="bx"/><text x="1010" y="58" text-anchor="middle" class="t">Stock, history, notify</text><text x="1010" y="78" text-anchor="middle" class="tm">each service reacts</text>
+          <text x="1010" y="124" text-anchor="middle" class="tm">Inventory · Assets · Notif.</text>
+          <line x1="170" y1="65" x2="192" y2="65" class="ln" marker-end="url(#c)"/>
+          <line x1="354" y1="65" x2="376" y2="65" class="ln" marker-end="url(#c)"/>
+          <line x1="538" y1="65" x2="560" y2="65" class="ln" marker-end="url(#c)"/>
+          <line x1="722" y1="65" x2="744" y2="65" class="ln" marker-end="url(#c)"/>
+          <line x1="906" y1="65" x2="928" y2="65" class="ln" marker-end="url(#c)"/>
+          <text x="10" y="156" class="tw">Offline: the field app queues changes and sends them when back online. If two people edited the same job, the later one is asked to review.</text>
+        </svg>
+      </div>
+      <figcaption>Preventive maintenance follows the same path, except the first box is a schedule ("every 90 days" or "every 500 running hours") instead of a person.</figcaption>
+    </figure>
+
+    <figure>
+      <h3>3 · Support access (break-glass)</h3>
+      <div class="scroll">
+        <svg viewBox="0 0 1100 150" role="img" aria-label="You request access with a reason and a duration; Tenancy issues a short-lived read-only pass for that one client; every request you make is written to the client's audit log; the pass expires automatically; the client's admins can see the session and its reason.">
+          <defs><marker id="d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="ah"/></marker></defs>
+          <rect x="10" y="20" width="200" height="70" rx="6" class="bx"/><text x="110" y="48" text-anchor="middle" class="t">You: reason + duration</text><text x="110" y="68" text-anchor="middle" class="tm">admin console</text>
+          <rect x="232" y="20" width="200" height="70" rx="6" class="bx-hi"/><text x="332" y="48" text-anchor="middle" class="t">Short-lived pass</text><text x="332" y="68" text-anchor="middle" class="tm">one client · read-only · 60 min</text>
+          <rect x="454" y="20" width="200" height="70" rx="6" class="bx"/><text x="554" y="48" text-anchor="middle" class="t">Every call logged</text><text x="554" y="68" text-anchor="middle" class="tm">marked "via support"</text>
+          <rect x="676" y="20" width="200" height="70" rx="6" class="bx"/><text x="776" y="48" text-anchor="middle" class="t">Pass expires</text><text x="776" y="68" text-anchor="middle" class="tm">no renewal without a new reason</text>
+          <rect x="898" y="20" width="192" height="70" rx="6" class="bx"/><text x="994" y="48" text-anchor="middle" class="t">Client admins see it</text><text x="994" y="68" text-anchor="middle" class="tm">in their audit log</text>
+          <line x1="210" y1="55" x2="230" y2="55" class="ln" marker-end="url(#d)"/>
+          <line x1="432" y1="55" x2="452" y2="55" class="ln" marker-end="url(#d)"/>
+          <line x1="654" y1="55" x2="674" y2="55" class="ln" marker-end="url(#d)"/>
+          <line x1="876" y1="55" x2="896" y2="55" class="ln" marker-end="url(#d)"/>
+          <text x="10" y="126" class="tw">Write access needs the client owner to approve the request first.</text>
+        </svg>
+      </div>
+      <figcaption>Platform accounts don't belong to any client, so this pass is the only way your account can reach a client's data.</figcaption>
+    </figure>
+  </section>
+
+  <section aria-labelledby="states">
+    <h2 id="states">Work order life cycle</h2>
+    <figure>
+      <div class="scroll">
+        <svg viewBox="0 0 1100 230" role="img" aria-label="A work order moves from Requested to Approved to Assigned to In progress to Completed to Closed. In progress can go to On hold and back. Requested, Approved or Assigned can be Cancelled. A completed job can be reopened back to In progress.">
+          <defs><marker id="e" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="ah"/></marker></defs>
+          <rect x="10" y="90" width="140" height="48" rx="24" class="bx"/><text x="80" y="119" text-anchor="middle" class="t">Requested</text>
+          <rect x="196" y="90" width="140" height="48" rx="24" class="bx"/><text x="266" y="119" text-anchor="middle" class="t">Approved</text>
+          <rect x="382" y="90" width="140" height="48" rx="24" class="bx"/><text x="452" y="119" text-anchor="middle" class="t">Assigned</text>
+          <rect x="568" y="90" width="140" height="48" rx="24" class="bx-hi"/><text x="638" y="119" text-anchor="middle" class="t">In progress</text>
+          <rect x="754" y="90" width="140" height="48" rx="24" class="bx"/><text x="824" y="119" text-anchor="middle" class="t">Completed</text>
+          <rect x="940" y="90" width="150" height="48" rx="24" class="bx-s"/><text x="1015" y="119" text-anchor="middle" class="t">Closed</text>
+          <rect x="568" y="10" width="140" height="44" rx="22" class="bx-warn"/><text x="638" y="37" text-anchor="middle" class="t">On hold</text>
+          <rect x="196" y="176" width="140" height="44" rx="22" class="bx-s"/><text x="266" y="203" text-anchor="middle" class="t">Cancelled</text>
+          <line x1="150" y1="114" x2="194" y2="114" class="ln" marker-end="url(#e)"/>
+          <line x1="336" y1="114" x2="380" y2="114" class="ln" marker-end="url(#e)"/>
+          <line x1="522" y1="114" x2="566" y2="114" class="ln" marker-end="url(#e)"/>
+          <line x1="708" y1="114" x2="752" y2="114" class="ln" marker-end="url(#e)"/>
+          <line x1="894" y1="114" x2="938" y2="114" class="ln" marker-end="url(#e)"/>
+          <line x1="620" y1="90" x2="620" y2="56" class="ln" marker-end="url(#e)"/>
+          <line x1="656" y1="56" x2="656" y2="88" class="ln" marker-end="url(#e)"/>
+          <text x="600" y="76" text-anchor="end" class="tl">waiting for parts</text>
+          <text x="664" y="76" class="tl">resume</text>
+          <path d="M80 138 V198 H194" class="ln" marker-end="url(#e)"/>
+          <path d="M452 138 V198 H338" class="ln" marker-end="url(#e)"/>
+          <line x1="266" y1="138" x2="266" y2="174" class="ln" marker-end="url(#e)"/>
+          <path d="M824 138 V168 H660 V140" class="ln" marker-end="url(#e)"/>
+          <text x="742" y="162" text-anchor="middle" class="tl">reopen</text>
+          <text x="916" y="80" text-anchor="middle" class="tl">after sign-off</text>
+        </svg>
+      </div>
+      <figcaption>Each move between states needs a permission (assign needs <code>workorders.assign</code>, finishing needs <code>workorders.complete</code>). Every move is an event that other services and the audit log record. Clients can rename states but not remove the core ones.</figcaption>
+    </figure>
+  </section>
+
+  <section aria-labelledby="check">
+    <h2 id="check">How a permission is checked</h2>
+    <figure>
+      <div class="scroll">
+        <svg viewBox="0 0 1100 120" role="img" aria-label="Four checks on every request: the gateway validates the token, the service checks the permission, the service checks the site scope, and the database row-level security limits rows to the client. Any failed check stops the request.">
+          <defs><marker id="f" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="ah"/></marker></defs>
+          <rect x="10" y="20" width="240" height="64" rx="6" class="bx"/><text x="130" y="46" text-anchor="middle" class="t">1 · Valid token?</text><text x="130" y="66" text-anchor="middle" class="tm">gateway · else 401</text>
+          <rect x="290" y="20" width="240" height="64" rx="6" class="bx"/><text x="410" y="46" text-anchor="middle" class="t">2 · Has the permission?</text><text x="410" y="66" text-anchor="middle" class="tm">e.g. assets.dispose · else 403</text>
+          <rect x="570" y="20" width="240" height="64" rx="6" class="bx"/><text x="690" y="46" text-anchor="middle" class="t">3 · Allowed at this site?</text><text x="690" y="66" text-anchor="middle" class="tm">role's site scope · else 403</text>
+          <rect x="850" y="20" width="240" height="64" rx="6" class="bx-hi"/><text x="970" y="46" text-anchor="middle" class="t">4 · Database filter</text><text x="970" y="66" text-anchor="middle" class="tm">row-level security on tenant_id</text>
+          <line x1="250" y1="52" x2="288" y2="52" class="ln" marker-end="url(#f)"/>
+          <line x1="530" y1="52" x2="568" y2="52" class="ln" marker-end="url(#f)"/>
+          <line x1="810" y1="52" x2="848" y2="52" class="ln" marker-end="url(#f)"/>
+          <text x="10" y="108" class="tl">Check 4 is the safety net: even a bug in checks 1–3 can't return another client's data.</text>
+        </svg>
+      </div>
+      <figcaption>The screens hide buttons the user can't use, but that's only for convenience. The server always checks again.</figcaption>
+    </figure>
+  </section>
+
+  <section aria-labelledby="screens">
+    <h2 id="screens">Screens and what's behind them</h2>
+    <p class="lede">Each mockup on the <a href="https://claude.ai/artifact/YX1kqgRvtMLYaUSuvnidDe">design canvas</a>, who uses it, and the services it talks to. This decides which services each build phase has to deliver.</p>
+    <div class="tablebox">
+      <table>
+        <thead><tr><th>Screen</th><th>Who uses it</th><th>Permission needed</th><th>Services behind it</th><th>Build phase</th></tr></thead>
+        <tbody>
+          <tr><td><a href="https://claude.ai/artifact/YX1kqgRvtMLYaUSuvnidDe#artboard-AdminConsole">Admin console · Clients</a></td><td>You (platform)</td><td>Platform Owner / Support</td><td>Tenancy, Access, Audit</td><td>1 · Foundation</td></tr>
+          <tr><td><a href="https://claude.ai/artifact/YX1kqgRvtMLYaUSuvnidDe#artboard-Roles">Roles &amp; permissions</a></td><td>Client Owner, Admin</td><td><code>roles.manage</code></td><td>Access, Audit</td><td>1 · Foundation</td></tr>
+          <tr><td><a href="https://claude.ai/artifact/YX1kqgRvtMLYaUSuvnidDe#artboard-TypeBuilder">Asset-type builder</a></td><td>Client Admin</td><td><code>settings.manage</code></td><td>Asset Catalog</td><td>2 · Assets</td></tr>
+          <tr><td><a href="https://claude.ai/artifact/YX1kqgRvtMLYaUSuvnidDe#artboard-Register">Asset register</a></td><td>Everyone with access</td><td><code>assets.read</code></td><td>Assets, Asset Catalog, Search</td><td>2 · Assets</td></tr>
+          <tr><td><a href="https://claude.ai/artifact/YX1kqgRvtMLYaUSuvnidDe#artboard-AssetDetail">Asset detail</a></td><td>Everyone with access</td><td><code>assets.read</code></td><td>Assets, Work Orders, Documents, Audit</td><td>2 · Assets</td></tr>
+          <tr><td><a href="https://claude.ai/artifact/YX1kqgRvtMLYaUSuvnidDe#artboard-WorkOrders">Work order board</a></td><td>Planner</td><td><code>workorders.assign</code></td><td>Work Orders, Access, Notifications</td><td>3 · Operations</td></tr>
+          <tr><td><a href="https://claude.ai/artifact/YX1kqgRvtMLYaUSuvnidDe#artboard-FieldApp">Field app · My jobs</a></td><td>Technician</td><td><code>workorders.complete</code></td><td>Work Orders, Inventory, Assets, Documents</td><td>4 · Field app</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section aria-labelledby="aware">
+    <h2 id="aware">Things you should be aware of</h2>
+    <div class="grid2">
+      <div class="card">
+        <span class="pill p-warn"><i></i>Decisions needed from you, later</span>
+        <ul>
+          <li><b>Billing:</b> manual invoices first, or a payment provider (Stripe, Paddle, a local gateway) from day one?</li>
+          <li><b>Email / SMS provider</b> for invites and alerts, for example Azure Communication Services or SendGrid.</li>
+          <li><b>Data region:</b> where client data lives (for example UAE North, West Europe). Some clients will require their own country.</li>
+          <li><b>Sub-domains:</b> the domain name to buy, e.g. <code>{client}.inventra.app</code>.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <span class="pill p-fault"><i></i>Risks to watch</span>
+        <ul>
+          <li><b>Azure cost:</b> twelve services, each with its own database, cost more than one app. We'll group small services onto shared hosting in staging to keep the monthly bill low.</li>
+          <li><b>Offline sync</b> in the field app is the hardest part to get right. It gets its own test suite.</li>
+          <li><b>Configurable fields</b> must stay fast to search and filter at 50,000+ assets. They get indexes and a load test.</li>
+          <li><b>Your PC's disk space:</b> Docker, PostgreSQL and the services need roughly 15–20 GB free to run locally.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <span class="pill p-info"><i></i>Rules we follow</span>
+        <ul>
+          <li>Never commit to main. Every change arrives as a patch after CI passes.</li>
+          <li>Every button either works or says why it can't. No silent failures.</li>
+          <li>The server checks every permission, not only the screens.</li>
+          <li>No AI costs unless you decide to add them.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <span class="pill p-ok"><i></i>Proposed additions (tell me if you disagree)</span>
+        <ul>
+          <li><b>Gateway</b> (YARP) in front of all services, so the apps have one address and one place to check tokens.</li>
+          <li><b>Search</b> starts on PostgreSQL full-text search, so there's no extra search engine to pay for. We'll move to a dedicated search engine only if it gets too slow.</li>
+          <li><b>Sub-domain per client</b> (<code>gulf-fm.inventra…</code>), so a link always opens the right company.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="changes">
+    <h2 id="changes">Change log</h2>
+    <div class="log">
+      <div><time>24 Nov 2026</time>Step 1 complete: asset register, asset detail, asset-type builder, work order board and field app mockups added. Screens table added to this map.</div>
+      <div><time>24 Nov 2026</time>System map created. Account model and support access agreed. Admin console and roles mockups drawn.</div>
+      <div><time>24 Nov 2026</time>Theme chosen: Field Kit (light) and Control Room (dark), the user picks the mode.</div>
+      <div><time>24 Nov 2026</time>Product named Inventra, repo created, plan approved: .NET + React, full platform.</div>
+    </div>
+  </section>
+</div>
