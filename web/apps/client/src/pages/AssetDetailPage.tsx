@@ -9,6 +9,7 @@ import { useAssetApis } from '../api/context';
 import { readOnlyReason, sitesWith, useMe } from '../me';
 import { formatDate, formatValue, siteLabel, useLookups } from './assetFormat';
 import { writableSites } from './AssetFormPage';
+import { AuditTab } from './AuditTab';
 import { DocumentsTab } from './DocumentsTab';
 
 const TABS = [
@@ -143,12 +144,7 @@ function Detail({ asset, flash, setFlash, reload }: { asset: Asset; flash: strin
         ) : null}
         {tab === 'children' ? <ChildrenTab asset={asset} /> : null}
         {tab === 'documents' ? <DocumentsTab asset={asset} uploadReason={editReason} /> : null}
-        {tab === 'audit' ? (
-          <section className="card empty">
-            <strong>Asset history arrives with the Audit service</strong>
-            <span>Changes to this asset are already recorded. Your company's audit log can't yet be filtered to one asset, so its history will show here once that arrives.</span>
-          </section>
-        ) : null}
+        {tab === 'audit' ? <AuditTab subjectId={asset.id} /> : null}
       </div>
 
       {dialog === 'move' ? <MoveDialog asset={asset} onClose={() => setDialog(null)} onDone={(a) => done(`${a.tag} moved to ${siteLabel(sites, a.siteId, a.location)}.`)} /> : null}

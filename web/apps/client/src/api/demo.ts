@@ -6,7 +6,7 @@
  */
 import { ApiError } from '../../../../shared/api/http';
 import type {
-  AccessApi, AccessMe, AssignmentInput, InvitationLink, NewInvite, PermissionArea, Role, RoleInput, Site, SiteInput, SupportPass, User,
+  AccessApi, AuditEntry, AccessMe, AssignmentInput, InvitationLink, NewInvite, PermissionArea, Role, RoleInput, Site, SiteInput, SupportPass, User,
 } from './access';
 
 const invalid = (errors: Record<string, string[]>) => new ApiError(400, 'Fix the highlighted fields and try again.', errors);
@@ -88,6 +88,12 @@ const PASS_SEEDS: SupportPass[] = [
     status: 'active', startedAt: '2026-11-24T11:30:00Z', expiresAt: '2026-11-24T12:30:00Z', endedAt: null, endedByName: null, actionCount: 3 },
   { id: 'p0', clientId: 'c1', requestedByName: 'Support Agent', reason: 'Ticket #4011: help setting up roles.', access: 'read',
     status: 'expired', startedAt: '2026-11-10T09:00:00Z', expiresAt: '2026-11-10T09:30:00Z', endedAt: '2026-11-10T09:30:00Z', endedByName: null, actionCount: 0 },
+];
+
+const AUDIT_SEEDS: AuditEntry[] = [
+  { id: 3, at: '2026-11-20T09:00:00Z', actorName: 'Sara Nasser', actorKind: 'user', action: 'asset.updated', targetType: 'asset', targetId: 'a1', details: 'Status: Service due → In service', supportPassId: null },
+  { id: 2, at: '2026-11-12T10:30:00Z', actorName: 'Support Agent', actorKind: 'support', action: 'asset.viewed', targetType: 'asset', targetId: 'a1', details: 'Viewed during support pass (Ticket #4182)', supportPassId: 'p1' },
+  { id: 1, at: '2026-10-10T09:00:00Z', actorName: 'Omar Fathi', actorKind: 'user', action: 'asset.created', targetType: 'asset', targetId: 'a1', details: 'Created HVAC-000417 Chiller CH-2', supportPassId: null },
 ];
 
 export interface DemoOptions {
@@ -197,6 +203,7 @@ export function createDemoAccessApi(options: DemoOptions = {}): AccessApi {
 
   return {
     me: buildMe,
+    audit: async (q) => AUDIT_SEEDS.filter((e) => (!q.subjectId || e.targetId === q.subjectId) && (!q.supportPassId || e.supportPassId === q.supportPassId)).slice(0, q.take ?? 50),
     savePreferences: async (t) => {
       theme = t;
       return buildMe();

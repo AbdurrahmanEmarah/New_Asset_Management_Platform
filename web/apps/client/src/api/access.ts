@@ -118,7 +118,23 @@ export interface InvitationPreview {
 
 export interface AcceptedInvitation { clientId: string; companyName: string; userId: string; signInAgain: boolean }
 
+export interface AuditEntry {
+  id: number;
+  at: string;
+  actorName: string;
+  actorKind: 'user' | 'support' | 'platform' | 'system';
+  action: string;
+  targetType: string | null;
+  targetId: string | null;
+  details: string;
+  supportPassId: string | null;
+}
+
+/** subjectId: the thing the entries are about, e.g. an asset id (asked of Backend for milestone 03). */
+export interface AuditQuery { subjectId?: string; supportPassId?: string; take?: number; before?: number }
+
 export interface AccessApi {
+  audit(query: AuditQuery): Promise<AuditEntry[]>;
   me(): Promise<AccessMe>;
   savePreferences(theme: ThemeMode): Promise<AccessMe>;
   listUsers(status: UserFilter, search: string): Promise<User[]>;
@@ -151,6 +167,15 @@ export function createAccessApi(gatewayUrl: string, getToken: TokenSource): Acce
 
   return {
     me: () => request('/me'),
+    audit: (q) => {
+      const p = new URLSearchParams();
+      if (q.subjectId) p.set('subjectId', q.subjectId);
+      if (q.supportPassId) p.set('supportPassId', q.supportPassId);
+      if (q.take) p.set('take', String(q.take));
+      if (q.before) p.set('before', String(q.before));
+      const qs = p.toString();
+      return request(`/audit${qs ? `?${qs}` : ''}`);
+    },
     savePreferences: (theme) => send('PUT', '/me/preferences', { theme }),
     listUsers: (status, search) => {
       const params = new URLSearchParams();
@@ -201,4 +226,5 @@ export const PERMISSIONS = {
   manageUsers: 'users.manage',
   manageRoles: 'roles.manage',
   manageSettings: 'settings.manage',
+  viewAudit: 'audit.view',
 } as const;
