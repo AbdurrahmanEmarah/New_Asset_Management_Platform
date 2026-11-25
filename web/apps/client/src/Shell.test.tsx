@@ -6,24 +6,25 @@ import { createDemoAccessApi } from './api/demo';
 import { renderWorkspace } from './test-utils';
 
 describe('Client shell', () => {
-  it('shows the company name and opens Settings › Users by default', async () => {
+  it('shows the company name and opens the asset register by default', async () => {
     renderWorkspace('/');
     expect(await screen.findByText('Gulf Facilities Co.', { selector: '.topbar-company' })).toBeInTheDocument();
-    expect(await screen.findByRole('heading', { name: 'Users', level: 1 })).toBeInTheDocument();
-    expect(window.location.pathname).toBe('/settings/users');
+    expect(await screen.findByRole('heading', { name: 'Assets', level: 1 })).toBeInTheDocument();
+    expect(window.location.pathname).toBe('/assets');
     const main = screen.getByRole('navigation', { name: 'Main' });
-    expect(within(main).getByRole('link', { name: 'Settings' })).toHaveClass('top-on');
+    expect(within(main).getByRole('link', { name: 'Assets' })).toHaveClass('top-on');
   });
 
   it('marks parts not built yet as Soon and says when they arrive', async () => {
     renderWorkspace('/settings/users');
     const main = await screen.findByRole('navigation', { name: 'Main' });
-    for (const label of ['Dashboard', 'Assets', 'Work orders', 'Inventory', 'Reports']) {
+    for (const label of ['Dashboard', 'Work orders', 'Inventory', 'Reports']) {
+      expect(within(main).getByRole('link', { name: 'Assets' })).toBeInTheDocument();
       const item = within(main).getByText(label).closest('.top')!;
       expect(item).toHaveAttribute('aria-disabled', 'true');
       expect(item).toHaveTextContent('Soon');
     }
-    expect(within(main).getByText('Assets').closest('.top')).toHaveTextContent('The asset register arrives in phase 2.');
+    expect(within(main).getByText('Inventory').closest('.top')).toHaveTextContent('Inventory arrives in phase 3.');
     const settings = screen.getByRole('navigation', { name: 'Settings' });
     expect(within(settings).getByText('Company profile').closest('.sidelink')).toHaveAttribute('aria-disabled', 'true');
     expect(within(settings).getByRole('link', { name: 'Roles & permissions' })).toBeInTheDocument();
@@ -65,7 +66,7 @@ describe('Client shell', () => {
     renderWorkspace('/', { api: { me } });
     expect(await screen.findByText(/Your profile didn't load: Can't reach the server/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
-    expect(await screen.findByRole('heading', { name: 'Users', level: 1 })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Assets', level: 1 })).toBeInTheDocument();
   });
 
   it('uses the theme saved on the profile, and saves a new choice there', async () => {

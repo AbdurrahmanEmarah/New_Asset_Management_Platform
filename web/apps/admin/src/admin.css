@@ -34,3 +34,15 @@ a.nav:hover { background: var(--side-on); }
 .plan-option[data-current] { opacity: 0.6; cursor: default; }
 .plan-option:has(input:checked) { border-color: var(--action); box-shadow: 0 0 0 1px var(--action); }
 
+
+/* Template library editor */
+.dialog:has(.template-form) { max-width: 860px; }
+.template-form { display: flex; flex-direction: column; gap: 16px; }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.editor-group { border: 1px solid var(--line); border-radius: var(--radius-lg); margin: 0; padding: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.editor-group legend { font-size: 13px; font-weight: 700; padding: 0 4px; }
+.editor-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr) auto auto 40px; gap: 8px; align-items: center; }
+@media (max-width: 640px) { .editor-row { grid-template-columns: 1fr 1fr; } }
+.editor-row-wrap .rules { padding-left: 12px; margin-top: 8px; border-radius: var(--radius); }
+.check-row { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+.check-row input { width: 18px; height: 18px; accent-color: var(--action); margin: 0; }

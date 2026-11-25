@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { errorText } from '../../../../shared/errors';
 import { useDebounced, useLoad } from '../../../../shared/hooks';
@@ -49,6 +49,19 @@ export function UsersPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  // Someone may accept an invitation while this page is open: refresh when the window regains
+  // focus, and every 10 s while invited people are listed.
+  const showsInvited = (users.data ?? []).some((u) => u.status === 'invited');
+  useEffect(() => {
+    const onFocus = () => { reload(); reloadSummary(); };
+    window.addEventListener('focus', onFocus);
+    const timer = showsInvited ? window.setInterval(onFocus, 10_000) : undefined;
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      if (timer) window.clearInterval(timer);
+    };
+  }, [showsInvited, reload, reloadSummary]);
 
   const roles = options.data?.[0] ?? [];
   const sites = options.data?.[1] ?? [];

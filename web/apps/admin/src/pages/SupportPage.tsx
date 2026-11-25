@@ -4,7 +4,7 @@ import { errorText } from '../../../../shared/errors';
 import { useLoad, useNow } from '../../../../shared/hooks';
 import { Button, Field, Notice, ShieldIcon, StatusPill } from '../../../../shared/ui';
 import { useApi, useSupportApi } from '../api/context';
-import { ACCESS_LABELS, PASS_STATUS, type StartedSupportPass, type SupportPass } from '../api/support';
+import { ACCESS_LABELS, PASS_STATUS, openWorkspace, workspaceReason, type StartedSupportPass, type SupportPass } from '../api/support';
 import { SUPPORT_ONLY, canRequestSupport, useMe } from '../me';
 import { RequestSupportDialog } from './RequestSupportDialog';
 
@@ -37,6 +37,7 @@ export function SupportPage() {
   const [passes, reloadPasses] = useLoad(() => (clientId ? support.passes(clientId) : Promise.resolve([])), [support, clientId]);
   const [requesting, setRequesting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [started, setStarted] = useState<StartedSupportPass | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [ending, setEnding] = useState<string | null>(null);
   const requestReason = canRequestSupport(me) ? null : SUPPORT_ONLY;
@@ -48,6 +49,7 @@ export function SupportPage() {
     setActionError(null);
     try {
       await support.end(clientId, p.id);
+      setStarted(null);
       setMessage(`The support pass for ${client?.name ?? 'this client'} has ended.`);
       reloadPasses();
     } catch (err) {
@@ -70,7 +72,14 @@ export function SupportPage() {
         </div>
       </div>
 
-      {message ? <Notice kind="ok" action={<Button size="sm" onClick={() => setMessage(null)}>Dismiss</Button>}>{message}</Notice> : null}
+      {message ? (
+        <Notice kind="ok" action={
+          <div style={{ display: 'flex', gap: 6 }}>
+            {started ? <Button size="sm" variant="primary" disabledReason={workspaceReason()} onClick={() => openWorkspace(started.pass, started.headerValue)}>Open workspace</Button> : null}
+            <Button size="sm" onClick={() => { setMessage(null); setStarted(null); }}>Dismiss</Button>
+          </div>
+        }>{message}</Notice>
+      ) : null}
       {actionError ? <Notice kind="error">{actionError}</Notice> : null}
       {clients.status === 'error' ? <Notice kind="error" action={<Button size="sm" onClick={reloadClients}>Try again</Button>}>Clients didn't load: {clients.error.message}</Notice> : null}
 
@@ -129,6 +138,9 @@ export function SupportPage() {
                       <td>
                         <div className="row-actions">
                           {p.status === 'active' ? (
+                            <Button size="sm" aria-label={`Open ${client?.name ?? 'the client'}'s workspace with the pass opened by ${p.requestedByName}`} disabledReason={workspaceReason()} onClick={() => openWorkspace(p)}>Open workspace</Button>
+                          ) : null}
+                          {p.status === 'active' ? (
                             <Button size="sm" variant="danger" busy={ending === p.id} disabledReason={requestReason} aria-label={`End support pass opened by ${p.requestedByName}`} onClick={() => end(p)}>End now</Button>
                           ) : null}
                         </div>
@@ -144,7 +156,7 @@ export function SupportPage() {
 
       {requesting && client ? (
         <RequestSupportDialog client={client} onClose={() => setRequesting(false)}
-          onDone={(s) => { setRequesting(false); setMessage(startedMessage(s, client.name)); reloadPasses(); }} />
+          onDone={(s) => { setRequesting(false); setStarted(s); setMessage(startedMessage(s, client.name)); reloadPasses(); }} />
       ) : null}
     </div>
   );

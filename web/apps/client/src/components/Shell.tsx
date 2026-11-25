@@ -16,7 +16,7 @@ interface TopItem {
 
 export const MAIN_NAV: TopItem[] = [
   { label: 'Dashboard', comingIn: 'The dashboard arrives with assets and work orders.' },
-  { label: 'Assets', comingIn: 'The asset register arrives in phase 2.' },
+  { label: 'Assets', to: '/assets' },
   { label: 'Work orders', comingIn: 'Work orders arrive in phase 3.' },
   { label: 'Inventory', comingIn: 'Inventory arrives in phase 3.' },
   { label: 'Reports', comingIn: 'Reports arrive in phase 5.' },

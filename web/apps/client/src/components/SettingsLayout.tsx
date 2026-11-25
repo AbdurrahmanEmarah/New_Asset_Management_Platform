@@ -16,7 +16,7 @@ export const SETTINGS_NAV: { heading: string; items: SideItem[] }[] = [
   {
     heading: 'Configuration',
     items: [
-      { label: 'Asset types', comingIn: 'The asset-type builder arrives in phase 2.' },
+      { label: 'Asset types', to: '/settings/asset-types' },
       { label: 'Modules', comingIn: 'Modules arrive in a later release.' },
       { label: 'Integrations', comingIn: 'Integrations arrive in phase 5.' },
       { label: 'Audit log', comingIn: 'Your company audit log arrives in phase 5.' },

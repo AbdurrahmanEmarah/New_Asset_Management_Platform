@@ -4,16 +4,35 @@ import { useLoad } from '../../../../shared/hooks';
 import { Button, CopyLink, Dialog, Notice } from '../../../../shared/ui';
 import { useSupportApi } from '../api/context';
 import type { OwnerInvitation } from '../api/support';
+import { ApiError } from '../../../../shared/api/http';
 import type { Client } from '../api/tenancy';
 import { OWNER_ONLY, useMe } from '../me';
 
 const when = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
+export const SETUP_RETRY = { delayMs: 2000, attempts: 5 };
+
+/**
+ * A client created a moment ago may not be in Access yet ("Access hasn't set up this client yet").
+ * Ask again for about 10 seconds before showing that.
+ */
+export async function untilSetUp<T>(load: () => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await load();
+    } catch (err) {
+      const settingUp = err instanceof ApiError && err.status === 404 && err.message.startsWith("Access hasn't set up this client yet");
+      if (!settingUp || attempt >= SETUP_RETRY.attempts) throw err;
+      await new Promise((resolve) => setTimeout(resolve, SETUP_RETRY.delayMs));
+    }
+  }
+}
+
 /** The client's first Owner joins with a link. Until email sending arrives, staff pass it on themselves. */
 export function OwnerInvitationDialog({ client, onClose }: { client: Client; onClose: () => void }) {
   const support = useSupportApi();
   const me = useMe();
-  const [invitation, reload] = useLoad(() => support.ownerInvitation(client.id), [support, client.id]);
+  const [invitation, reload] = useLoad(() => untilSetUp(() => support.ownerInvitation(client.id)), [support, client.id]);
   const [fresh, setFresh] = useState<OwnerInvitation | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +55,7 @@ export function OwnerInvitationDialog({ client, onClose }: { client: Client; onC
       {invitation.status === 'error' && !fresh ? (
         <Notice kind="error" action={<Button size="sm" onClick={reload}>Try again</Button>}>The invitation didn't load: {invitation.error.message}</Notice>
       ) : null}
-      {!inv && invitation.status === 'loading' ? <p className="muted" style={{ margin: 0 }}>Loading…</p> : null}
+      {!inv && invitation.status === 'loading' ? <p className="muted" style={{ margin: 0 }}>Loading… (a client created a moment ago can take a few seconds to be ready)</p> : null}
       {inv ? (
         <>
           <p style={{ margin: 0 }}>
