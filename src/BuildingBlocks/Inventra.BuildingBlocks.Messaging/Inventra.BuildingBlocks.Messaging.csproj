@@ -21,4 +21,7 @@
     <PackageReference Include="WolverineFx.AzureServiceBus" />
     <PackageReference Include="Azure.Identity" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Inventra.BuildingBlocks.Tests" />
+  </ItemGroup>
 </Project>

@@ -16,6 +16,24 @@
       "project": "src/Services/Access/Inventra.Access/Inventra.Access.csproj",
       "database": "accessdb",
       "usesBlobStorage": false
+    },
+    {
+      "name": "catalog",
+      "project": "src/Services/Catalog/Inventra.Catalog/Inventra.Catalog.csproj",
+      "database": "catalogdb",
+      "usesBlobStorage": false
+    },
+    {
+      "name": "assets",
+      "project": "src/Services/Assets/Inventra.Assets/Inventra.Assets.csproj",
+      "database": "assetsdb",
+      "usesBlobStorage": false
+    },
+    {
+      "name": "documents",
+      "project": "src/Services/Documents/Inventra.Documents/Inventra.Documents.csproj",
+      "database": "documentsdb",
+      "usesBlobStorage": true
     }
   ]
 }

@@ -9,4 +9,8 @@ public static class ObservedAccessEvents
     public static void Handle(ClientUsersCounted message, PublishedEvents events) => events.Add(message);
 
     public static void Handle(PlatformActivityRecorded message, PublishedEvents events) => events.Add(message);
+
+    public static void Handle(SiteCreated message, PublishedEvents events) => events.Add(message);
+
+    public static void Handle(SiteUpdated message, PublishedEvents events) => events.Add(message);
 }

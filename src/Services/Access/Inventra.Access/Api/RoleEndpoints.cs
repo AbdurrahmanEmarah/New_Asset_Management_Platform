@@ -60,7 +60,10 @@ public static class RoleEndpoints
         var role = await db.Roles.FirstOrDefaultAsync(r => r.Id == id, ct);
         if (role is null) return Problems.NotFound("No role has this id. It may have been deleted.");
         if (role.CannotEditReason() is { } why) return Problems.Conflict(why);
+        if (request.Version is null) return new FieldErrors().Add("version", "Send the version of the role you opened, so changes made meanwhile aren't overwritten.").ToResult();
+        if (request.Version != role.Version) return StaleRole();
         if (await ValidateAsync(request, db, excludingRoleId: id, ct) is { } invalid) return invalid;
+        db.Entry(role).Property(r => r.Version).OriginalValue = request.Version.Value; // also catches a save in between
 
         var permissions = request.Permissions ?? [];
         var added = permissions.Except(role.Permissions).ToList();
@@ -138,12 +141,19 @@ public static class RoleEndpoints
             $"You can only give permissions you have yourself. You don't have {RoleRules.Describe(missing)}. Ask an Owner to make this change.");
     }
 
+    private static IResult StaleRole() =>
+        Problems.Conflict("Someone else changed this role since you opened it. Reload to see their changes, then make yours again.");
+
     private static async Task<IResult?> SaveAsync(AccessDbContext db, string name, CancellationToken ct)
     {
         try
         {
             await db.SaveChangesAsync(ct);
             return null;
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return StaleRole();
         }
         catch (DbUpdateException ex) when (ex.IsUniqueViolation(AccessDbContext.RoleNameIndex))
         {

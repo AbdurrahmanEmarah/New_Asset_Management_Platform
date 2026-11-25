@@ -7,6 +7,11 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="xunit.v3.extensibility.core" />
+    <PackageReference Include="xunit.v3.assert" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\..\src\BuildingBlocks\Inventra.BuildingBlocks\Inventra.BuildingBlocks.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Inventra.BuildingBlocks.Messaging\Inventra.BuildingBlocks.Messaging.csproj" />
   </ItemGroup>

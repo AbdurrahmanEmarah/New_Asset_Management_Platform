@@ -30,6 +30,10 @@ namespace Inventra.Tenancy.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<DateTimeOffset?>("AssetsCountedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("assets_counted_at");
+
                     b.Property<int>("AssetsUsed")
                         .HasColumnType("integer")
                         .HasColumnName("assets_used");
@@ -79,6 +83,10 @@ namespace Inventra.Tenancy.Data.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)")
                         .HasColumnName("status");
+
+                    b.Property<DateTimeOffset?>("StorageCountedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("storage_counted_at");
 
                     b.Property<long>("StorageUsedMb")
                         .HasColumnType("bigint")

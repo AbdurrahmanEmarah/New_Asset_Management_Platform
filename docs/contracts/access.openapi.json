@@ -128,12 +128,42 @@
         }
       }
     },
+    "/internal/caller": {
+      "get": {
+        "tags": [
+          "Internal"
+        ],
+        "summary": "Who the caller is inside their company: permissions, site scope and support pass. Used by other services.",
+        "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallerInfo"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/audit": {
       "get": {
         "tags": [
           "Audit"
         ],
-        "summary": "The company\u0027s audit log, newest first. Page with before (an entry id). Filter by supportPassId.",
+        "summary": "The company\u0027s audit log, newest first. Page with before (an entry id). Filter by supportPassId, or by subjectId (the asset, user, role\u2026 an entry is about).",
         "parameters": [
           {
             "name": "take",
@@ -161,6 +191,14 @@
           },
           {
             "name": "supportPassId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "subjectId",
             "in": "query",
             "schema": {
               "type": "string",
@@ -1826,6 +1864,94 @@
           }
         }
       },
+      "CallerGrant": {
+        "required": [
+          "permissions",
+          "siteIds"
+        ],
+        "type": "object",
+        "properties": {
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "siteIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "CallerInfo": {
+        "required": [
+          "clientId",
+          "clientName",
+          "actorId",
+          "actorName",
+          "actorKind",
+          "userId",
+          "isOwner",
+          "permissions",
+          "grants",
+          "supportPassId",
+          "readOnly"
+        ],
+        "type": "object",
+        "properties": {
+          "clientId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clientName": {
+            "type": "string"
+          },
+          "actorId": {
+            "type": "string"
+          },
+          "actorName": {
+            "type": "string"
+          },
+          "actorKind": {
+            "type": "string"
+          },
+          "userId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "isOwner": {
+            "type": "boolean"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "grants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CallerGrant"
+            }
+          },
+          "supportPassId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "readOnly": {
+            "type": "boolean"
+          }
+        }
+      },
       "CompanyRef": {
         "required": [
           "id",
@@ -2300,6 +2426,15 @@
             "items": {
               "type": "string"
             }
+          },
+          "version": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "uint32"
           }
         }
       },
@@ -2314,7 +2449,8 @@
           "memberCount",
           "cannotEditReason",
           "cannotDeleteReason",
-          "updatedAt"
+          "updatedAt",
+          "version"
         ],
         "type": "object",
         "properties": {
@@ -2366,6 +2502,14 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "version": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "uint32"
           }
         }
       },
@@ -2756,6 +2900,9 @@
     },
     {
       "name": "Roles"
+    },
+    {
+      "name": "Internal"
     },
     {
       "name": "Audit"
