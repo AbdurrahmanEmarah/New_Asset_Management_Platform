@@ -88,10 +88,10 @@ for entry in "${entries[@]}"; do
   owner=$(as_super -d "$database" -c "SELECT tableowner FROM pg_tables WHERE schemaname = 'public' AND tablename = '${table//\"/}'")
   if [ "$owner" = "$migrator" ]; then pass "tables are owned by $migrator"; else fail "table $table is owned by '$owner', not $migrator"; fi
 
-  col=$(as_super -d "$database" -c "SELECT quote_ident(column_name) FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '${table//\"/}' ORDER BY ordinal_position LIMIT 1")
+  col=$(as_super -d "$database" -c "SELECT quote_ident(column_name) FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '${table//\"/}' AND is_identity = 'NO' ORDER BY ordinal_position LIMIT 1")
   rpw=${runtime_pw[$service]}
   expect_ok     "$runtime can read $table"                        "$runtime" "$rpw" "$database" "SELECT count(*) FROM $table"
-  expect_ok     "$runtime can insert, update and delete rows"     "$runtime" "$rpw" "$database" "BEGIN; INSERT INTO $table SELECT * FROM $table WHERE false; UPDATE $table SET $col = $col WHERE false; DELETE FROM $table WHERE false; ROLLBACK"
+  expect_ok     "$runtime can insert, update and delete rows"     "$runtime" "$rpw" "$database" "BEGIN; INSERT INTO $table OVERRIDING SYSTEM VALUE SELECT * FROM $table WHERE false; UPDATE $table SET $col = $col WHERE false; DELETE FROM $table WHERE false; ROLLBACK"
   expect_denied "$runtime cannot create tables"                   "$runtime" "$rpw" "$database" "CREATE TABLE sneaky (id int)"
   expect_denied "$runtime cannot drop $table"                     "$runtime" "$rpw" "$database" "DROP TABLE $table"
   expect_denied "$runtime cannot alter $table"                    "$runtime" "$rpw" "$database" "ALTER TABLE $table ADD COLUMN sneaky int"
@@ -101,6 +101,13 @@ for entry in "${entries[@]}"; do
   expect_denied "$runtime cannot create roles"                    "$runtime" "$rpw" "postgres" "CREATE ROLE sneaky"
   expect_denied "another login cannot connect to $database"       intruder intruder "$database" "SELECT 1"
   expect_denied "$migrator cannot create roles"                   "$migrator" "${migrator_pw[$service]}" "$database" "CREATE ROLE sneaky"
+
+  # Wolverine's outbox and inbox come from the migrations; the runtime login only uses their rows.
+  wolverine_owner=$(as_super -d "$database" -c "SELECT tableowner FROM pg_tables WHERE schemaname = 'wolverine' AND tablename = 'wolverine_incoming_envelopes'")
+  if [ "$wolverine_owner" = "$migrator" ]; then pass "the wolverine tables exist and are owned by $migrator"; else fail "wolverine.wolverine_incoming_envelopes is owned by '${wolverine_owner:-nobody (missing)}', not $migrator"; fi
+  expect_ok     "$runtime can use the outbox and inbox rows"      "$runtime" "$rpw" "$database" "BEGIN; SELECT count(*) FROM wolverine.wolverine_incoming_envelopes; DELETE FROM wolverine.wolverine_outgoing_envelopes WHERE false; UPDATE wolverine.wolverine_nodes SET id = id WHERE false; SELECT nextval('wolverine.wolverine_node_records_id_seq'); ROLLBACK"
+  expect_denied "$runtime cannot create tables in wolverine"      "$runtime" "$rpw" "$database" "CREATE TABLE wolverine.sneaky (id int)"
+  expect_denied "$runtime cannot drop wolverine tables"           "$runtime" "$rpw" "$database" "DROP TABLE wolverine.wolverine_dead_letters"
 
   echo "Service image signed in as $runtime"
   name="lp-test-$service"

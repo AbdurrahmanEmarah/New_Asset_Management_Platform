@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Wolverine;
 
 [assembly: AssemblyFixture(typeof(Inventra.Access.Tests.AccessApi))]
@@ -40,6 +41,8 @@ public sealed class AccessApi : IAsyncLifetime
 
     public PublishedEvents Events { get; } = new();
 
+    public CapturedLogs Logs { get; } = new();
+
     public string ConnectionString => _db!.ConnectionString;
 
     public IServiceProvider Services => _factory!.Services;
@@ -52,7 +55,9 @@ public sealed class AccessApi : IAsyncLifetime
             b.UseEnvironment("Testing");
             b.UseSetting("ConnectionStrings:accessdb", _db.ConnectionString);
             b.UseSetting("Database:MigrateOnStartup", "true");
+            b.UseSetting("Database:RowSecurityRole", "inventra_app");
             b.UseSetting("Access:WebAppUrl", "https://app.example.test");
+            b.ConfigureLogging(l => l.AddProvider(Logs));
             b.ConfigureTestServices(s =>
             {
                 s.AddTestAuthentication().AddTestMessaging();

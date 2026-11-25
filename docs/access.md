@@ -14,7 +14,7 @@ The API contract is [contracts/access.openapi.json](contracts/access.openapi.jso
 ## Joining a company
 
 1. When Tenancy creates a client, Access sets it up from `ClientCreated`: the built-in roles, plus an Owner invitation. The admin console reissues the Owner's link with `POST /platform/clients/{id}/owner-invitation`.
-2. Invitation links are `{web app}/join#<token>`. The token starts with the client id, and only its hash is stored.
+2. Invitation links are `{web app}/join#<token>`. The token starts with the client id, and only its hash is stored. Links and tokens are shown once, in the response, and are never logged.
 3. The invitee signs in with the `inventra` realm, then calls `POST /invitations/preview` and `POST /invitations/accept`. Access sets the Keycloak user attribute `tenant_id` through the `access-service` client. The `tenant_id` mapper puts it in the token, so the app signs in again when `signInAgain` is true.
 4. Every client-scoped request goes through the tenant gate. It refuses people who aren't linked, aren't members or are deactivated, and everyone in a suspended company, each with a plain reason.
 
@@ -22,8 +22,9 @@ The API contract is [contracts/access.openapi.json](contracts/access.openapi.jso
 
 Every Access table has `tenant_id` and a forced policy `tenant_isolation`. Each connection sets `inventra.tenant_id` from `ITenantContext`. With no client set, no rows are visible. The reusable parts are in `BuildingBlocks/Data`: `AddTenantDatabase`, `ITenantContext` and `RowSecurityMigrations`.
 
-- **Locally and in tests** the login is a superuser, so each connection switches to the restricted role `inventra_app` (`Database:RowSecurityRole`). That contains careless queries. Injected SQL could still run `RESET ROLE` there.
-- **In Azure** the service logs in as `svc_access`, which owns no tables. Set `Database:RowSecurityRole` to an empty value there; the policies then apply to the login itself. Migrations run as the migrator. If it can't create roles, the role steps only warn. Grant `svc_access` DML on the `public` and `wolverine` schemas.
+- **Locally and in tests** the login is a superuser, so the AppHost and the tests set `Database:RowSecurityRole=inventra_app`, and each connection switches to that restricted role. That contains careless queries. Injected SQL could still run `RESET ROLE` there.
+- **In Azure** the service logs in as `svc_access`, which owns no tables, and `Database:RowSecurityRole` stays empty (the default). The policies then apply to the login itself. Migrations run as the migrator. If it can't create roles, the role steps only warn.
+- **At startup** Access refuses to run if its connections would bypass row-level security (a superuser or BYPASSRLS login with no role to switch to).
 
 ## Messaging
 
@@ -36,6 +37,8 @@ Wolverine with a PostgreSQL outbox (schema `wolverine` in each service's databas
 | neither (tests) | In-process local queues. |
 
 Failed handlers retry, then land in `wolverine.wolverine_dead_letters`.
+
+Wolverine's tables are created by each service's EF migrations (`CreateWolverineStorage("6.63")`, from the schema captured in `BuildingBlocks.Messaging/Storage/wolverine-6.63.sql`), so the migrator owns them. Wolverine builds or updates its storage itself only when `Database:MigrateOnStartup` is true (locally and in tests). After migrating, `infra/db/sql/after-migrate.sql` gives the runtime login DML on the `wolverine` schema. When Wolverine is upgraded and its schema changes, capture a new file and add a migration.
 
 | Event | From → to |
 |---|---|
