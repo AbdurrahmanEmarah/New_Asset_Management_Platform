@@ -8,5 +8,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\BuildingBlocks\Inventra.BuildingBlocks\Inventra.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\..\src\BuildingBlocks\Inventra.BuildingBlocks.Messaging\Inventra.BuildingBlocks.Messaging.csproj" />
   </ItemGroup>
 </Project>

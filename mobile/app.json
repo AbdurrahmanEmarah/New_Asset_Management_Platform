@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "Inventra Field",
+    "slug": "inventra-field",
+    "scheme": "inventra",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#0f1216",
+    "ios": {
+      "bundleIdentifier": "com.inventra.field",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.inventra.field"
+    },
+    "web": {
+      "output": "single",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-web-browser",
+      "expo-font",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Inventra uses the camera to scan the QR tag on an asset.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ]
+    ]
+  }
+}

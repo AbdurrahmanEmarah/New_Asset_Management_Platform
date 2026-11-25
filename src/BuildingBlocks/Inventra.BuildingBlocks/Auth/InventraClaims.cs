@@ -8,6 +8,7 @@ public static class InventraClaims
     public const string Email = "email";
     public const string Roles = "roles";
     public const string TenantId = "tenant_id";
+    public const string EmailVerified = "email_verified";
 
     /// <summary>
     /// Added by the server after a token is validated: "platform" or "tenant".
@@ -48,4 +49,7 @@ public static class PlatformPolicies
 
     /// <summary>Change a client's plan: owner or billing.</summary>
     public const string ManageBilling = "platform:billing:manage";
+
+    /// <summary>Request a time-limited support pass into one client: owner or support.</summary>
+    public const string RequestSupportAccess = "platform:support:request";
 }

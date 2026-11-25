@@ -4,6 +4,7 @@
     <AspireVersion>13.6.5</AspireVersion>
     <AspNetVersion>10.0.15</AspNetVersion>
     <OTelVersion>1.21.0</OTelVersion>
+    <WolverineVersion>6.63.0</WolverineVersion>
   </PropertyGroup>
   <ItemGroup Label="Aspire">
     <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="$(AspireVersion)" />
@@ -11,6 +12,7 @@
     <PackageVersion Include="Aspire.Hosting.Keycloak" Version="13.6.5-preview.1.26559.7" />
     <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="$(AspireVersion)" />
     <PackageVersion Include="Aspire.Hosting.Testing" Version="$(AspireVersion)" />
+    <PackageVersion Include="Aspire.Hosting.RabbitMQ" Version="$(AspireVersion)" />
   </ItemGroup>
   <ItemGroup Label="ASP.NET Core and data">
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="$(AspNetVersion)" />
@@ -22,6 +24,15 @@
     <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
     <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="10.0.15" />
     <PackageVersion Include="Yarp.ReverseProxy" Version="2.3.0" />
+  </ItemGroup>
+  <ItemGroup Label="Messaging">
+    <PackageVersion Include="WolverineFx" Version="$(WolverineVersion)" />
+    <PackageVersion Include="WolverineFx.Postgresql" Version="$(WolverineVersion)" />
+    <PackageVersion Include="WolverineFx.EntityFrameworkCore" Version="$(WolverineVersion)" />
+    <PackageVersion Include="WolverineFx.RabbitMQ" Version="$(WolverineVersion)" />
+    <PackageVersion Include="WolverineFx.RuntimeCompilation" Version="$(WolverineVersion)" />
+    <PackageVersion Include="WolverineFx.AzureServiceBus" Version="$(WolverineVersion)" />
+    <PackageVersion Include="Azure.Identity" Version="1.21.0" />
   </ItemGroup>
   <ItemGroup Label="Service defaults">
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.11.1" />
@@ -38,5 +49,7 @@
     <PackageVersion Include="xunit.v3" Version="3.2.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="$(AspNetVersion)" />
+    <!-- End-to-end tests. Keep in step with the browser build installed by "playwright.ps1 install". -->
+    <PackageVersion Include="Microsoft.Playwright" Version="1.63.0" />
   </ItemGroup>
 </Project>

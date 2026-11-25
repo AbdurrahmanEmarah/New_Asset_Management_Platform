@@ -2,10 +2,12 @@ using System.Net.Mail;
 using Inventra.BuildingBlocks.Auth;
 using Inventra.BuildingBlocks.Data;
 using Inventra.BuildingBlocks.Http;
+using Inventra.Contracts.Tenancy;
 using Inventra.Tenancy.Data;
 using Inventra.Tenancy.Domain;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
+using Wolverine.EntityFrameworkCore;
 
 namespace Inventra.Tenancy.Api;
 
@@ -76,7 +78,7 @@ public static class ClientEndpoints
     }
 
     internal static async Task<IResult> CreateClient(
-        CreateClientRequest request, TenancyDbContext db, ICurrentUser user, TimeProvider clock, CancellationToken ct)
+        CreateClientRequest request, TenancyDbContext db, IDbContextOutbox<TenancyDbContext> outbox, ICurrentUser user, TimeProvider clock, CancellationToken ct)
     {
         var errors = new FieldErrors()
             .Require("name", request.Name, "Company name")
@@ -101,9 +103,12 @@ public static class ClientEndpoints
         db.AuditEntries.Add(PlatformAuditEntry.For(user.Id, user.Name, AuditActions.ClientCreated, client,
             $"Created on the {plan!.Name} plan in {Regions.NameOf(client.Region)}. Owner: {client.OwnerName} <{client.OwnerEmail}>.", now));
 
+        await outbox.PublishAsync(new ClientCreated(
+            client.Id, client.Name, client.Slug, plan.Key, plan.MaxUsers, client.OwnerName, client.OwnerEmail, now));
+
         try
         {
-            await db.SaveChangesAsync(ct);
+            await outbox.SaveChangesAndFlushMessagesAsync(ct);
         }
         catch (DbUpdateException ex) when (ex.IsUniqueViolation(TenancyDbContext.SlugIndex))
         {
@@ -114,7 +119,7 @@ public static class ClientEndpoints
     }
 
     internal static async Task<IResult> SuspendClient(
-        Guid id, SuspendClientRequest request, TenancyDbContext db, ICurrentUser user, TimeProvider clock, CancellationToken ct)
+        Guid id, SuspendClientRequest request, TenancyDbContext db, IDbContextOutbox<TenancyDbContext> outbox, ICurrentUser user, TimeProvider clock, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.Reason))
             return new FieldErrors().Add("reason", "Say why the client is suspended. Their owner will see this.").ToResult();
@@ -128,13 +133,15 @@ public static class ClientEndpoints
         var now = clock.GetUtcNow();
         client.Suspend(request.Reason, now);
         db.AuditEntries.Add(PlatformAuditEntry.For(user.Id, user.Name, AuditActions.ClientSuspended, client, $"Reason: {client.SuspendedReason}", now));
-        await db.SaveChangesAsync(ct);
+        await outbox.PublishAsync(new ClientSuspended(client.Id, client.SuspendedReason!, now));
+        await outbox.SaveChangesAndFlushMessagesAsync(ct);
 
         var plan = await db.Plans.AsNoTracking().FirstAsync(p => p.Key == client.PlanKey, ct);
         return TypedResults.Ok(ClientResponse.From(client, plan));
     }
 
-    internal static async Task<IResult> ReactivateClient(Guid id, TenancyDbContext db, ICurrentUser user, TimeProvider clock, CancellationToken ct)
+    internal static async Task<IResult> ReactivateClient(
+        Guid id, TenancyDbContext db, IDbContextOutbox<TenancyDbContext> outbox, ICurrentUser user, TimeProvider clock, CancellationToken ct)
     {
         var client = await db.Clients.FirstOrDefaultAsync(c => c.Id == id, ct);
         if (client is null) return Problems.NotFound("No client has this id.");
@@ -144,12 +151,13 @@ public static class ClientEndpoints
         var now = clock.GetUtcNow();
         client.Reactivate(plan, now);
         db.AuditEntries.Add(PlatformAuditEntry.For(user.Id, user.Name, AuditActions.ClientReactivated, client, "Access restored.", now));
-        await db.SaveChangesAsync(ct);
+        await outbox.PublishAsync(new ClientReactivated(client.Id, now));
+        await outbox.SaveChangesAndFlushMessagesAsync(ct);
         return TypedResults.Ok(ClientResponse.From(client, plan));
     }
 
     internal static async Task<IResult> ChangePlan(
-        Guid id, ChangePlanRequest request, TenancyDbContext db, ICurrentUser user, TimeProvider clock, CancellationToken ct)
+        Guid id, ChangePlanRequest request, TenancyDbContext db, IDbContextOutbox<TenancyDbContext> outbox, ICurrentUser user, TimeProvider clock, CancellationToken ct)
     {
         var target = string.IsNullOrWhiteSpace(request.PlanKey) ? null : await db.Plans.AsNoTracking().FirstOrDefaultAsync(p => p.Key == request.PlanKey, ct);
         if (target is null) return new FieldErrors().Add("planKey", "Choose a plan.").ToResult();
@@ -159,9 +167,11 @@ public static class ClientEndpoints
         if (client.CannotChangePlanReason(target) is { } why) return Problems.Conflict(why);
 
         var from = await db.Plans.AsNoTracking().FirstAsync(p => p.Key == client.PlanKey, ct);
+        var now = clock.GetUtcNow();
         client.ChangePlan(target);
-        db.AuditEntries.Add(PlatformAuditEntry.For(user.Id, user.Name, AuditActions.PlanChanged, client, $"{from.Name} → {target.Name}.", clock.GetUtcNow()));
-        await db.SaveChangesAsync(ct);
+        db.AuditEntries.Add(PlatformAuditEntry.For(user.Id, user.Name, AuditActions.PlanChanged, client, $"{from.Name} → {target.Name}.", now));
+        await outbox.PublishAsync(new ClientPlanChanged(client.Id, target.Key, target.MaxUsers, now));
+        await outbox.SaveChangesAndFlushMessagesAsync(ct);
         return TypedResults.Ok(ClientResponse.From(client, target));
     }
 

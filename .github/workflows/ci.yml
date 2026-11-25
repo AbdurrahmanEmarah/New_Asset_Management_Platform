@@ -32,10 +32,16 @@ jobs:
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
       DOTNET_NOLOGO: '1'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
+      - name: Cache NuGet packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', 'dotnet-tools.json', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
       - name: Restore
         run: dotnet restore Inventra.slnx
       - name: Build
@@ -43,7 +49,9 @@ jobs:
       - name: Check that migrations match the model
         run: |
           dotnet tool restore
-          dotnet ef migrations has-pending-model-changes --project src/Services/Tenancy/Inventra.Tenancy --no-build -c Release
+          # Note: for dotnet ef, -c means --context, so the configuration must be spelled out.
+          dotnet ef migrations has-pending-model-changes --project src/Services/Tenancy/Inventra.Tenancy --no-build --configuration Release
+          dotnet ef migrations has-pending-model-changes --project src/Services/Access/Inventra.Access --no-build --configuration Release
       - name: Test
         run: dotnet test Inventra.slnx --no-build -c Release --logger "console;verbosity=normal" --blame-hang-timeout 10m
 
@@ -55,8 +63,8 @@ jobs:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -66,3 +74,148 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npx vite build --config apps/admin/vite.config.ts
+      - run: npx vite build --config apps/client/vite.config.ts
+
+  images:
+    name: Container images and database logins
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        # Azure Flexible Server runs 17; the logins test should match it.
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+      - name: Cache NuGet packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', 'dotnet-tools.json', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+      - name: Build images (not pushed)
+        run: scripts/build-images.sh --tag ci
+      - name: Gateway image starts
+        run: |
+          docker run -d --name gateway -p 18000:8080 \
+            -e Auth__Platform__Authority=https://login.invalid/realms/inventra-platform inventra/gateway:ci
+          for _ in $(seq 1 30); do curl -fsS http://localhost:18000/alive && exit 0; sleep 1; done
+          docker logs gateway; exit 1
+      - name: Least-privilege database logins
+        run: scripts/db/test-least-privilege.sh ci
+
+  infra:
+    name: Bicep and scripts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BICEP_VERSION: v0.48.1
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Bicep
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl -fsSLo "$RUNNER_TEMP/bin/bicep" "https://github.com/Azure/bicep/releases/download/$BICEP_VERSION/bicep-linux-x64"
+          chmod +x "$RUNNER_TEMP/bin/bicep"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/bin/bicep" --version
+      - name: Lint and build Bicep (warnings fail)
+        run: |
+          set -o pipefail
+          for cmd in "lint infra/main.bicep" "build infra/main.bicep --stdout" "build-params infra/main.staging.bicepparam --stdout"; do
+            # shellcheck disable=SC2086
+            bicep $cmd >/dev/null 2>bicep.log || { cat bicep.log; exit 1; }
+            if grep -E "Warning|Error" bicep.log; then exit 1; fi
+          done
+      - name: Shell scripts
+        run: shellcheck scripts/*.sh scripts/*/*.sh infra/db/entrypoint.sh
+      - name: PowerShell scripts parse
+        shell: pwsh
+        run: |
+          $failed = $false
+          Get-ChildItem scripts -Recurse -Filter *.ps1 | ForEach-Object {
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$null, [ref]$errors) | Out-Null
+            if ($errors) { $errors | ForEach-Object { Write-Error "$($_.Extent.File):$($_.Extent.StartLineNumber) $($_.Message)" }; $failed = $true }
+          }
+          if ($failed) { exit 1 }
+
+  # Starts the whole platform through the AppHost (Docker: PostgreSQL, Keycloak) and drives the admin
+  # console in Chromium. Takes several minutes, so it runs on main, integration and QA branches, and on demand.
+  e2e:
+    name: End-to-end (admin console in a browser)
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.ref == 'refs/heads/main' ||
+      startsWith(github.ref, 'refs/heads/claude/integration-') ||
+      startsWith(github.ref, 'refs/heads/claude/qa-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      INVENTRA_E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install web packages
+        working-directory: web
+        run: npm ci --no-audit --no-fund
+      - name: Build the end-to-end tests
+        run: dotnet build tests/EndToEnd/Inventra.EndToEnd.Tests -c Release
+      - name: Install Chromium for Playwright
+        run: pwsh tests/EndToEnd/Inventra.EndToEnd.Tests/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
+      - name: Pull container images
+        # Pulled up front so slow registries don't eat the tests' start-up time.
+        run: |
+          docker pull docker.io/library/postgres:18.3 &
+          docker pull quay.io/keycloak/keycloak:26.6 &
+          docker pull docker.io/library/rabbitmq:4.3-management &
+          wait
+      - name: Run the end-to-end tests
+        run: dotnet test tests/EndToEnd/Inventra.EndToEnd.Tests --no-build -c Release --logger "console;verbosity=normal" --blame-hang-timeout 15m
+      - name: Upload screenshots, traces and the stack log
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: e2e-artifacts
+          path: e2e-artifacts/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  mobile:
+    name: Field app typecheck, lint and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test

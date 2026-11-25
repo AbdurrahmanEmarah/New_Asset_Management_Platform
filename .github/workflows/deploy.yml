@@ -1,0 +1,91 @@
+name: Deploy
+
+# Complete, but switched off: no job runs until the repository variable DEPLOY_ENABLED is "true".
+# Runs after CI succeeds on main, or by hand (Actions → Deploy → Run workflow) from main.
+# Signs in to Azure with OpenID Connect: there are no Azure secrets in GitHub.
+# Setup: docs/deployment/azure-setup.md. Check it with scripts/preflight.ps1 before switching this on.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+# One deployment at a time, and never cancel one halfway through.
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  staging:
+    name: Deploy to staging
+    if: >-
+      vars.DEPLOY_ENABLED == 'true' && (
+        (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+          && github.event.workflow_run.event == 'push')
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # The federated credential trusts exactly this environment (subject repo:<owner>/<repo>:environment:staging).
+    environment: staging
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+      INVENTRA_ENVIRONMENT: staging
+      INVENTRA_IMAGE_TAG: ${{ github.event.workflow_run.head_sha || github.sha }}
+      INVENTRA_NAME_PREFIX: ${{ vars.INVENTRA_NAME_PREFIX }}
+      INVENTRA_LOCATION: ${{ vars.AZURE_LOCATION }}
+      INVENTRA_PLATFORM_AUTHORITY: ${{ vars.INVENTRA_PLATFORM_AUTHORITY }}
+      INVENTRA_TENANT_AUTHORITY: ${{ vars.INVENTRA_TENANT_AUTHORITY }}
+      INVENTRA_TOKEN_AUDIENCE: ${{ vars.INVENTRA_TOKEN_AUDIENCE || 'inventra-api' }}
+      INVENTRA_CORS_ORIGINS: ${{ vars.INVENTRA_CORS_ORIGINS }}
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.INVENTRA_IMAGE_TAG }}
+
+      - name: Check repository variables
+        env:
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          missing=()
+          for name in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID AZURE_RESOURCE_GROUP \
+                      INVENTRA_LOCATION INVENTRA_NAME_PREFIX INVENTRA_PLATFORM_AUTHORITY; do
+            [ -n "${!name}" ] || missing+=("$name")
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Set these repository variables first (see docs/deployment/azure-setup.md): ${missing[*]/INVENTRA_LOCATION/AZURE_LOCATION}"
+            exit 1
+          fi
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', 'dotnet-tools.json', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Sign in to Azure (OpenID Connect)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy
+        run: scripts/deploy/deploy.sh

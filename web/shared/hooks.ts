@@ -59,3 +59,13 @@ export function useDebounced<T>(value: T, ms = 250): T {
   }, [value, ms]);
   return debounced;
 }
+
+/** The current time, refreshed every `ms` milliseconds; for countdowns without impure renders. */
+export function useNow(ms = 30_000): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), ms);
+    return () => window.clearInterval(id);
+  }, [ms]);
+  return now;
+}
