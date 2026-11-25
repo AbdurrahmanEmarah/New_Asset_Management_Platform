@@ -80,7 +80,7 @@ export function RolesPage() {
     setSaving(true);
     setSaveError(null);
     try {
-      const saved = await api.updateRole(selected.id, current);
+      const saved = await api.updateRole(selected.id, { ...current, version: selected.version });
       setOverrides((o) => ({ ...o, [saved.id]: saved }));
       setDraft(null);
       setMessage(`${saved.name} is saved. Everyone with this role has the new permissions now.`);
@@ -212,7 +212,12 @@ export function RolesPage() {
                     ? 'You have unsaved changes. Saving updates everyone with this role and is recorded in the audit log.'
                     : 'All changes saved.'}
               </span>
-              {saveError ? <span className="field-error" role="alert" style={{ flexBasis: '100%' }}>{saveError.text}</span> : null}
+              {saveError ? (
+                <span className="field-error" role="alert" style={{ flexBasis: '100%', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  {saveError.text}
+                  {/Reload/i.test(saveError.text) ? <Button size="sm" onClick={() => { discard(); reloadRoles(); }}>Reload</Button> : null}
+                </span>
+              ) : null}
               <Button onClick={discard} disabledReason={dirty ? null : 'Nothing to discard.'}>Discard</Button>
               <Button variant="primary" busy={saving} onClick={save} disabledReason={editReason ?? (dirty ? null : 'Nothing to save yet. Tick or untick a permission first.')}>
                 {saving ? 'Saving…' : 'Save role'}

@@ -83,6 +83,8 @@ export interface Role {
   cannotEditReason: string | null;
   cannotDeleteReason: string | null;
   updatedAt: string;
+  /** Concurrency token: send it back on save; an older one answers 409 with a reload hint. */
+  version: number;
 }
 
 export interface RoleInput { name: string; description: string; permissions: string[] }
@@ -148,7 +150,7 @@ export interface AccessApi {
   permissions(): Promise<PermissionArea[]>;
   roles(): Promise<Role[]>;
   createRole(body: RoleInput): Promise<Role>;
-  updateRole(id: string, body: RoleInput): Promise<Role>;
+  updateRole(id: string, body: RoleInput & { version: number }): Promise<Role>;
   copyRole(id: string, name: string): Promise<Role>;
   deleteRole(id: string): Promise<void>;
   sites(): Promise<Site[]>;

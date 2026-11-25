@@ -205,7 +205,7 @@ export function createAssetApis(gatewayUrl: string, getToken: TokenSource): Asse
         return doc(`/assets/${assetId}/documents`, { method: 'POST', body: form });
       },
       remove: (id) => doc(`/documents/${id}`, { method: 'DELETE' }),
-      link: (id) => doc(`/documents/${id}/link`, { method: 'POST' }),
+      link: (id) => doc(`/documents/${id}/link`),
       usage: () => doc('/usage'),
     },
   };

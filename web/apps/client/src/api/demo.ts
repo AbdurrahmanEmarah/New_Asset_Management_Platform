@@ -39,7 +39,7 @@ export const SITES: Site[] = [
   { id: 'yard', name: 'Plant yard', code: 'YRD', isActive: false },
 ];
 
-type StoredRole = Omit<Role, 'memberCount' | 'cannotEditReason' | 'cannotDeleteReason'>;
+type StoredRole = Omit<Role, 'memberCount' | 'cannotEditReason' | 'cannotDeleteReason' | 'version'> & { version?: number };
 const UPDATED = '2026-11-20T09:00:00Z';
 const builtIn = (id: string, name: string, permissions: string[], description: string): StoredRole =>
   ({ id, name, description, kind: 'built_in', builtInKey: id, permissions, updatedAt: UPDATED });
@@ -152,7 +152,7 @@ export function createDemoAccessApi(options: DemoOptions = {}): AccessApi {
   const toRole = (r: StoredRole): Role => {
     const memberCount = users.filter((u) => u.status !== 'deactivated' && hasRole(u, r.id)).length;
     return {
-      ...clone(r), memberCount,
+      ...clone(r), version: r.version ?? 1, memberCount,
       cannotEditReason: r.kind === 'owner' ? "The Owner role always has every permission and can't be edited." : null,
       cannotDeleteReason: r.kind !== 'custom' ? "Built-in roles can't be deleted. Copy one to make your own version."
         : memberCount > 0 ? `${memberCount} ${memberCount === 1 ? 'person has' : 'people have'} this role. Give them another role first.` : null,
@@ -285,8 +285,9 @@ export function createDemoAccessApi(options: DemoOptions = {}): AccessApi {
       const r = roles.find((x) => x.id === id);
       if (!r) throw new ApiError(404, 'No role has this id.');
       if (r.kind === 'owner') throw new ApiError(409, "The Owner role always has every permission and can't be edited.");
+      if (body.version !== (r.version ?? 1)) throw new ApiError(409, `Someone else changed ${r.name} while you were editing. Reload it and make your changes again.`);
       checkRole(body, id);
-      Object.assign(r, { name: body.name.trim(), description: body.description.trim(), permissions: [...body.permissions], updatedAt: now().toISOString() });
+      Object.assign(r, { name: body.name.trim(), description: body.description.trim(), permissions: [...body.permissions], updatedAt: now().toISOString(), version: (r.version ?? 1) + 1 });
       return toRole(r);
     },
     copyRole: async (id, name) => {

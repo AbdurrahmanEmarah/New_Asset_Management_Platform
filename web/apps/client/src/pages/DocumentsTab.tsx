@@ -96,8 +96,8 @@ export function DocumentsTab({ asset, uploadReason }: { asset: Asset; uploadReas
         {usage.data ? (
           <div style={{ width: '100%', maxWidth: 320 }}>
             <span className="tile-label">Storage on your plan</span>
-            <UsageMeter label="Storage" used={Math.round(usage.data.usedBytes / 1024 ** 2)} limit={Math.round(usage.data.limitBytes / 1024 ** 2)} state={usage.data.state} />
-            <span className="muted" style={{ fontSize: 12 }}>{formatBytes(usage.data.usedBytes)} of {formatBytes(usage.data.limitBytes)} used (MB shown)</span>
+            <UsageMeter label="Storage" used={usage.data.usedBytes} limit={usage.data.limitBytes} state={usage.data.state}
+              text={`${formatBytes(usage.data.usedBytes)} of ${formatBytes(usage.data.limitBytes)}`} />
           </div>
         ) : null}
         {usage.status === 'error' ? <span className="muted" style={{ fontSize: 12 }}>Storage use didn't load: {usage.error.message}</span> : null}
