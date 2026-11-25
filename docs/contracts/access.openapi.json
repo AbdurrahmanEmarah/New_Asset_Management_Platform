@@ -2426,6 +2426,15 @@
             "items": {
               "type": "string"
             }
+          },
+          "version": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "uint32"
           }
         }
       },
@@ -2440,7 +2449,8 @@
           "memberCount",
           "cannotEditReason",
           "cannotDeleteReason",
-          "updatedAt"
+          "updatedAt",
+          "version"
         ],
         "type": "object",
         "properties": {
@@ -2492,6 +2502,14 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "version": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "uint32"
           }
         }
       },

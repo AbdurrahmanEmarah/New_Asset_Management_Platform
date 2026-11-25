@@ -24,7 +24,7 @@ public sealed class RoleTests(AccessApi api)
             new RoleRequest("Boss", "", []), Ct), HttpStatusCode.Conflict));
 
         var edited = await Read<RoleResponse>(await api.Client(company.Owner).PutAsJsonAsync($"/roles/{tech.Id}",
-            new RoleRequest("Technician", tech.Description, [.. tech.Permissions, "checklists.manage"]), Ct));
+            new RoleRequest("Technician", tech.Description, [.. tech.Permissions, "checklists.manage"], tech.Version), Ct));
         Assert.Contains("checklists.manage", edited.Permissions);
         Assert.Contains("built-in role", await Problem(await api.Client(company.Owner).DeleteAsync($"/roles/{tech.Id}", Ct), HttpStatusCode.Conflict));
 
@@ -75,5 +75,25 @@ public sealed class RoleTests(AccessApi api)
 
         var (tech, _) = await api.AddMemberAsync(company, "technician");
         Assert.Contains("\"Edit roles\"", await Problem(await api.Client(tech).PostAsJsonAsync("/roles", new RoleRequest("X", "", []), Ct), HttpStatusCode.Forbidden));
+    }
+
+    [Fact]
+    public async Task A_role_saved_from_a_stale_copy_answers_409_instead_of_overwriting()
+    {
+        var company = await api.CreateCompanyAsync();
+        var opened = (await Read<List<RoleResponse>>(await api.Client(company.Owner).GetAsync("/roles", Ct))).Single(r => r.BuiltInKey == "storekeeper");
+
+        var first = await Read<RoleResponse>(await api.Client(company.Owner).PutAsJsonAsync($"/roles/{opened.Id}",
+            new RoleRequest(opened.Name, opened.Description, [.. opened.Permissions, "reports.view"], opened.Version), Ct));
+        Assert.NotEqual(opened.Version, first.Version);
+
+        var detail = await Problem(await api.Client(company.Owner).PutAsJsonAsync($"/roles/{opened.Id}",
+            new RoleRequest(opened.Name, opened.Description, opened.Permissions, opened.Version), Ct), HttpStatusCode.Conflict);
+        Assert.Equal("Someone else changed this role since you opened it. Reload to see their changes, then make yours again.", detail);
+        Assert.Contains("reports.view", (await Read<RoleResponse>(await api.Client(company.Owner).GetAsync($"/roles/{opened.Id}", Ct))).Permissions);
+
+        var errors = await FieldErrors(await api.Client(company.Owner).PutAsJsonAsync($"/roles/{opened.Id}",
+            new RoleRequest(opened.Name, opened.Description, opened.Permissions), Ct));
+        Assert.Contains("Send the version", errors["version"][0]);
     }
 }
