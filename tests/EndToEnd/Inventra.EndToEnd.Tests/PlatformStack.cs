@@ -31,6 +31,8 @@ public sealed class PlatformStack : IAsyncLifetime
 
     public IBrowser Browser { get; private set; } = null!;
     public string AdminUrl { get; private set; } = null!;
+    public string ClientUrl { get; private set; } = null!;
+    public string GatewayUrl { get; private set; } = null!;
 
     /// <summary>Where screenshots and traces of failed tests go. Uploaded by CI.</summary>
     public static string ArtifactsDir { get; } = Environment.GetEnvironmentVariable("INVENTRA_E2E_ARTIFACTS")
@@ -67,15 +69,22 @@ public sealed class PlatformStack : IAsyncLifetime
         try
         {
             await _app.StartAsync(ct);
-            foreach (var name in new[] { "keycloak", "tenancy", "gateway" })
+            foreach (var name in new[] { "keycloak", "rabbitmq", "tenancy", "access", "gateway" })
             {
                 await _app.ResourceNotifications.WaitForResourceHealthyAsync(name, ct);
             }
             await _app.ResourceNotifications.WaitForResourceAsync("admin-web", KnownResourceStates.Running, ct);
+            await _app.ResourceNotifications.WaitForResourceAsync("client-web", KnownResourceStates.Running, ct);
 
             AdminUrl = _app.GetEndpoint("admin-web", "http").ToString().TrimEnd('/');
+            ClientUrl = _app.GetEndpoint("client-web", "http").ToString().TrimEnd('/');
+            GatewayUrl = _app.GetEndpoint("gateway", "http").ToString().TrimEnd('/');
             await WaitForHttpAsync(AdminUrl, ct);
-            await WaitForHttpAsync(_app.GetEndpoint("keycloak", "http") + "realms/inventra-platform/.well-known/openid-configuration", ct);
+            await WaitForHttpAsync(ClientUrl, ct);
+            foreach (var realm in new[] { "inventra-platform", "inventra" })
+            {
+                await WaitForHttpAsync(_app.GetEndpoint("keycloak", "http") + $"realms/{realm}/.well-known/openid-configuration", ct);
+            }
         }
         catch (Exception ex)
         {

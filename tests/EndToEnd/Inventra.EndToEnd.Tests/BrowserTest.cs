@@ -112,11 +112,11 @@ public abstract class BrowserTest(PlatformStack stack) : IAsyncLifetime
     }
 
     /// <summary>Creates a client through the New client dialog and waits for its row.</summary>
-    protected static async Task CreateClientAsync(IPage page, string name, string slug, string plan = "Trial")
+    protected static async Task CreateClientAsync(IPage page, string name, string slug, string plan = "Trial", string ownerEmail = "ola@example.com")
     {
         await page.GetByRole(AriaRole.Button, new() { Name = "New client" }).ClickAsync();
         var dialog = page.GetByRole(AriaRole.Dialog, new() { Name = "New client" });
-        await FillNewClientAsync(dialog, name, slug, plan);
+        await FillNewClientAsync(dialog, name, slug, plan, ownerEmail);
         await dialog.GetByRole(AriaRole.Button, new() { Name = "Create client" }).ClickAsync();
 
         await Expect(dialog).ToBeHiddenAsync();
@@ -124,7 +124,7 @@ public abstract class BrowserTest(PlatformStack stack) : IAsyncLifetime
         await Expect(ClientRow(page, name)).ToBeVisibleAsync();
     }
 
-    protected static async Task FillNewClientAsync(ILocator dialog, string name, string slug, string plan = "Trial")
+    protected static async Task FillNewClientAsync(ILocator dialog, string name, string slug, string plan = "Trial", string ownerEmail = "ola@example.com")
     {
         await dialog.GetByLabel("Company name").FillAsync(name);
         await dialog.GetByLabel("Sub-domain").FillAsync(slug);
@@ -136,7 +136,7 @@ public abstract class BrowserTest(PlatformStack stack) : IAsyncLifetime
         await Expect(planSelect.Locator("option", new() { HasText = plan })).ToBeAttachedAsync();
         await planSelect.SelectOptionAsync(new SelectOptionValue { Label = plan });
         await dialog.GetByLabel("Owner's name").FillAsync("Ola Owner");
-        await dialog.GetByLabel("Owner's email").FillAsync("ola@example.com");
+        await dialog.GetByLabel("Owner's email").FillAsync(ownerEmail);
     }
 
     protected static ILocator ClientRow(IPage page, string name) =>
