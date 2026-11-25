@@ -13,7 +13,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Inventra.Assets.Data.Migrations
 {
     [DbContext(typeof(AssetsDbContext))]
-    [Migration("20261125113836_Initial")]
+    [Migration("20261125115612_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -207,10 +207,54 @@ namespace Inventra.Assets.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("max_assets");
 
+                    b.Property<DateTimeOffset?>("SitesRequestedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sites_requested_at");
+
                     b.HasKey("TenantId")
                         .HasName("pk_client_limits");
 
                     b.ToTable("client_limits", (string)null);
+                });
+
+            modelBuilder.Entity("Inventra.Assets.Domain.SiteCopy", b =>
+                {
+                    b.Property<Guid>("SiteId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("site_id");
+
+                    b.Property<DateTimeOffset>("ChangedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("changed_at");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("code");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("SiteId")
+                        .HasName("pk_sites");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_sites_tenant_id");
+
+                    b.ToTable("sites", (string)null);
                 });
 
             modelBuilder.Entity("Inventra.Assets.Domain.Asset", b =>

@@ -8,11 +8,12 @@ namespace Inventra.Assets.Data;
 public sealed class AssetsDbContext(DbContextOptions<AssetsDbContext> options) : DbContext(options)
 {
     public const string TagIndex = "ix_assets_tenant_id_tag";
-    public static readonly string[] TenantTables = ["assets", "asset_types", "client_limits"];
+    public static readonly string[] TenantTables = ["assets", "asset_types", "client_limits", "sites"];
 
     public DbSet<Asset> Assets => Set<Asset>();
     public DbSet<AssetTypeCopy> Types => Set<AssetTypeCopy>();
     public DbSet<ClientLimit> Limits => Set<ClientLimit>();
+    public DbSet<SiteCopy> Sites => Set<SiteCopy>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -46,6 +47,15 @@ public sealed class AssetsDbContext(DbContextOptions<AssetsDbContext> options) :
             e.Property(t => t.Statuses).HasJsonConversion();
             e.HasIndex(t => t.TenantId);
             e.Property<uint>("RowVersion").IsRowVersion();
+        });
+
+        model.Entity<SiteCopy>(e =>
+        {
+            e.ToTable("sites");
+            e.HasKey(s => s.SiteId);
+            e.Property(s => s.Name).HasMaxLength(120);
+            e.Property(s => s.Code).HasMaxLength(16);
+            e.HasIndex(s => s.TenantId);
         });
 
         model.Entity<ClientLimit>(e =>

@@ -22,3 +22,6 @@ public sealed record ClientActivityRecorded(
 
 /// <summary>Platform staff changed something that belongs to no client (e.g. the template library). Tenancy writes it to the platform audit log.</summary>
 public sealed record PlatformChangeRecorded(string Service, string ActorId, string ActorName, string Action, string Details, DateTimeOffset OccurredAt);
+
+/// <summary>A service has no plan limits for this client yet (a client from before the service existed). Tenancy answers with ClientLimitsAnnounced.</summary>
+public sealed record ClientLimitsRequested(Guid ClientId, string Service, DateTimeOffset RequestedAt);

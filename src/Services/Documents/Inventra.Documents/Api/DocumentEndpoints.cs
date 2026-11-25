@@ -59,7 +59,7 @@ public static class DocumentEndpoints
 
     internal static async Task<IResult> Upload(
         Guid assetId, IFormFile? file, HttpContext http, ClientCaller caller, DocumentsDbContext db, IDbContextOutbox<DocumentsDbContext> outbox,
-        IAssetLookup assets, IFileStore store, TimeProvider clock, CancellationToken ct)
+        IAssetLookup assets, IFileStore store, Wolverine.IMessageBus bus, TimeProvider clock, CancellationToken ct)
     {
         var asset = await assets.FindAsync(http, assetId, ct);
         if (asset is null) return NoSuchAsset();
@@ -77,7 +77,12 @@ public static class DocumentEndpoints
         if (contentType is null) return new FieldErrors().Add("file", "Upload a PDF or an image (PNG, JPEG or WebP).").ToResult();
 
         var limit = await db.Limits.SingleOrDefaultAsync(ct);
-        if (limit is null) return Problems.Conflict("Your company's plan limits haven't reached file storage yet. Try again in a minute.");
+        if (limit is null)
+        {
+            // A client from before Documents existed: ask Tenancy for its limits.
+            await bus.PublishAsync(new Inventra.Contracts.Shared.ClientLimitsRequested(caller.TenantId, Service, clock.GetUtcNow()));
+            return Problems.Conflict("Your company's plan limits are still being loaded into file storage. Try again in a few seconds.");
+        }
         var used = await db.Documents.SumAsync(d => (long?)d.SizeBytes, ct) ?? 0;
         if (limit.CannotStoreReason(used, file.Length) is { } full) return Problems.Conflict(full);
 

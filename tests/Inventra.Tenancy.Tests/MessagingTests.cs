@@ -15,6 +15,7 @@ public static class ObservedTenancyEvents
     public static void Handle(ClientSuspended m, PublishedEvents e) => e.Add(m);
     public static void Handle(ClientReactivated m, PublishedEvents e) => e.Add(m);
     public static void Handle(ClientPlanChanged m, PublishedEvents e) => e.Add(m);
+    public static void Handle(ClientLimitsAnnounced m, PublishedEvents e) => e.Add(m);
 }
 
 public sealed class MessagingTests(TenancyApi api) : IClassFixture<TenancyApi>
@@ -102,5 +103,9 @@ public sealed class UsageTests(TenancyApi api) : IClassFixture<TenancyApi>
         Assert.Equal(4, fresh.Usage.StorageMb.Used);
         var audit = await api.Client(TestUser.PlatformOwner).GetFromJsonAsync<List<AuditEntryResponse>>("/audit?take=50", Json, Ct);
         Assert.Contains(audit!, a => a.Action == "template.saved" && a.ClientId == null);
+
+        await api.DeliverAsync(new Inventra.Contracts.Shared.ClientLimitsRequested(client.Id, "assets", at));
+        var limits = await api.Events.WaitForAsync<ClientLimitsAnnounced>(e => e.ClientId == client.Id);
+        Assert.Equal((2000, 20L * 1024), (limits.MaxAssets, limits.StorageMb));
     }
 }

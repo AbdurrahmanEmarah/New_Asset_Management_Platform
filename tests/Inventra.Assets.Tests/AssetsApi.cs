@@ -21,6 +21,14 @@ public sealed class AssetsApi : ServiceApi<Program>
         return id;
     }
 
+    /// <summary>A site, as Access would announce it.</summary>
+    public async Task<Guid> SiteAsync(Guid clientId, string name = "HQ Tower", bool active = true, Guid? id = null)
+    {
+        var siteId = id ?? Guid.NewGuid();
+        await DeliverAsync(new Contracts.Access.SiteUpdated(clientId, siteId, name, name[..2].ToUpperInvariant(), active, DateTimeOffset.UtcNow));
+        return siteId;
+    }
+
     /// <summary>A Pump type, as Catalog would publish it.</summary>
     public async Task<AssetTypePublished> PumpTypeAsync(Guid clientId, int version = 1, IReadOnlyList<FieldDefinition>? fields = null, bool archived = false, Guid? typeId = null)
     {
@@ -43,4 +51,6 @@ public sealed class AssetsApi : ServiceApi<Program>
 public static class ObservedAssetEvents
 {
     public static void Handle(ClientAssetsCounted m, PublishedEvents e) => e.Add(m);
+
+    public static void Handle(SitesRequested m, PublishedEvents e) => e.Add(m);
 }

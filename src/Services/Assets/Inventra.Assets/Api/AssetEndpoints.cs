@@ -6,6 +6,8 @@ using Inventra.BuildingBlocks.Clients;
 using Inventra.BuildingBlocks.Http;
 using Inventra.Contracts.Assets;
 using Inventra.Contracts.Catalog;
+using Inventra.Contracts.Shared;
+using Wolverine;
 using Microsoft.EntityFrameworkCore;
 using Wolverine.EntityFrameworkCore;
 
@@ -123,7 +125,7 @@ public static class AssetEndpoints
     }
 
     internal static async Task<IResult> Create(
-        CreateAssetRequest request, ClientCaller caller, AssetsDbContext db, IDbContextOutbox<AssetsDbContext> outbox, TimeProvider clock, CancellationToken ct)
+        CreateAssetRequest request, ClientCaller caller, AssetsDbContext db, IDbContextOutbox<AssetsDbContext> outbox, IMessageBus bus, TimeProvider clock, CancellationToken ct)
     {
         var errors = new RuleErrors();
         if (request.TypeId is null) return new FieldErrors().Add("typeId", "Choose the asset type.").ToResult();
@@ -139,10 +141,11 @@ public static class AssetEndpoints
                 ? "Only people whose role covers every site can add an asset without a site. Choose one of your sites."
                 : "You can only add assets at the sites where your role lets you create and edit assets.");
 
-        var limit = await db.Limits.SingleOrDefaultAsync(ct);
-        if (limit is null) return Problems.Conflict("Your company's plan limits haven't reached the asset register yet. Try again in a minute.");
+        var limit = await LimitAsync(db, bus, caller.TenantId, clock.GetUtcNow(), ct);
+        if (limit is null) return LimitsLoading();
         var count = await db.Assets.CountAsync(a => a.RetiredAt == null, ct);
         if (limit.CannotAddReason(count) is { } full) return Problems.Conflict(full);
+        if (await SiteProblemAsync(request.SiteId, limit, db, outbox, clock.GetUtcNow(), ct) is { } siteProblem) return siteProblem;
 
         var statusKey = string.IsNullOrWhiteSpace(request.StatusKey) ? type.Statuses.FirstOrDefault()?.Key ?? "" : request.StatusKey;
         if (type.Status(statusKey) is null) errors.Add("statusKey", $"Choose one of {type.Name}'s statuses.");
@@ -194,7 +197,7 @@ public static class AssetEndpoints
     }
 
     internal static async Task<IResult> Move(
-        Guid id, MoveAssetRequest request, ClientCaller caller, AssetsDbContext db, IDbContextOutbox<AssetsDbContext> outbox, TimeProvider clock, CancellationToken ct)
+        Guid id, MoveAssetRequest request, ClientCaller caller, AssetsDbContext db, IDbContextOutbox<AssetsDbContext> outbox, IMessageBus bus, TimeProvider clock, CancellationToken ct)
     {
         var asset = await Visible(db, caller).FirstOrDefaultAsync(a => a.Id == id, ct);
         if (asset is null) return NoSuchAsset();
@@ -205,6 +208,9 @@ public static class AssetEndpoints
             return Problems.Forbidden("You can only move assets between sites where your role lets you transfer assets.");
 
         var now = clock.GetUtcNow();
+        var limit = await LimitAsync(db, bus, caller.TenantId, now, ct);
+        if (limit is null) return LimitsLoading();
+        if (await SiteProblemAsync(request.SiteId, limit, db, outbox, now, ct) is { } siteProblem) return siteProblem;
         asset.Move(request.SiteId, request.Location ?? "", now);
         await outbox.PublishAsync(caller.Activity(Service, "asset.moved", "asset", asset.Id,
             $"Moved {asset.Tag} to {(request.SiteId is null ? "no site" : $"site {request.SiteId}")}{(string.IsNullOrWhiteSpace(asset.Location) ? "" : $", {asset.Location}")}.", now));
@@ -242,6 +248,34 @@ public static class AssetEndpoints
         }
 
         return TypedResults.Ok(await ResponseAsync(asset, caller, db, ct));
+    }
+
+    /// <summary>The client's limits; when missing (a client from before Assets existed), asks Tenancy for them.</summary>
+    private static async Task<ClientLimit?> LimitAsync(AssetsDbContext db, IMessageBus bus, Guid tenantId, DateTimeOffset now, CancellationToken ct)
+    {
+        var limit = await db.Limits.SingleOrDefaultAsync(ct);
+        if (limit is null) await bus.PublishAsync(new ClientLimitsRequested(tenantId, Service, now));
+        return limit;
+    }
+
+    private static IResult LimitsLoading() =>
+        Problems.Conflict("Your company's plan limits are still being loaded into the asset register. Try again in a few seconds.");
+
+    /// <summary>The site must be one of the client's active Access sites. Asks Access for the sites once if Assets has none yet.</summary>
+    private static async Task<IResult?> SiteProblemAsync(Guid? siteId, ClientLimit limit, AssetsDbContext db, IDbContextOutbox<AssetsDbContext> outbox, DateTimeOffset now, CancellationToken ct)
+    {
+        if (siteId is null) return null;
+        var site = await db.Sites.AsNoTracking().FirstOrDefaultAsync(s => s.SiteId == siteId, ct);
+        if (site is null)
+        {
+            if (!limit.NeedsSites) return new FieldErrors().Add("siteId", "That site doesn't exist in your company. Reload the page and choose another.").ToResult();
+            limit.SitesRequested(now);
+            await outbox.PublishAsync(new Contracts.Assets.SitesRequested(limit.TenantId, now));
+            await outbox.SaveChangesAndFlushMessagesAsync(ct);
+            return Problems.Conflict("Your company's sites are still being loaded into the asset register. Try again in a few seconds.");
+        }
+
+        return site.CannotPlaceAssetsReason() is { } why ? new FieldErrors().Add("siteId", why).ToResult() : null;
     }
 
     private static void CheckName(string? name, RuleErrors errors)

@@ -37,7 +37,8 @@ Milestone 03. The contracts are [catalog](contracts/catalog.openapi.json), [asse
   - Assets with no site are visible only to all-sites callers.
   - Outside your sites an asset answers 404. Visible but not editable answers 403.
   - Moving needs "Transfer between sites" at both sites; retiring needs "Retire or dispose".
-- **Site ids aren't yet checked against Access's site list.** Assets accepts any site within the caller's scope.
+- **Sites come from Access:** Access publishes `SiteCreated` and `SiteUpdated` through its outbox, and Assets keeps a copy. Unknown or inactive sites are refused with a sentence.
+- **Backfills:** a client from before Assets existed is filled in once, lazily, one client at a time, so row-level security holds. The first time Assets needs that client's sites it sends `SitesRequested`, and Access re-sends them. The first time it needs the client's plan limits it sends `ClientLimitsRequested`, and Tenancy answers `ClientLimitsAnnounced` (Documents does the same for storage). Until the answer arrives, the request gets a 409 saying "try again in a few seconds".
 - **Plan limit:** the asset limit (from `ClientCreated` / `ClientPlanChanged`) blocks at 100% with a sentence. Every create and retire sends `ClientAssetsCounted` to Tenancy.
 
 ## Files (Documents)

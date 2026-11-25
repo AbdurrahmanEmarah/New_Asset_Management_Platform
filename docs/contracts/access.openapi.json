@@ -163,7 +163,7 @@
         "tags": [
           "Audit"
         ],
-        "summary": "The company\u0027s audit log, newest first. Page with before (an entry id). Filter by supportPassId.",
+        "summary": "The company\u0027s audit log, newest first. Page with before (an entry id). Filter by supportPassId, or by subjectId (the asset, user, role\u2026 an entry is about).",
         "parameters": [
           {
             "name": "take",
@@ -191,6 +191,14 @@
           },
           {
             "name": "supportPassId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "subjectId",
             "in": "query",
             "schema": {
               "type": "string",

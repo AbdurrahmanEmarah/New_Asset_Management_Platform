@@ -138,7 +138,7 @@ public sealed class AssetTests(AssetsApi api)
     {
         var client = await api.ClientAsync();
         var type = await api.PumpTypeAsync(client);
-        Guid hq = Guid.NewGuid(), depot = Guid.NewGuid();
+        Guid hq = await api.SiteAsync(client, "HQ"), depot = await api.SiteAsync(client, "Depot");
         var everywhere = api.Client(Manager(client));
         var atHq = await Read<AssetResponse>(await everywhere.PostAsJsonAsync("/assets", Pump(type.TypeId, "HQ pump", hq), Ct));
         var atDepot = await Read<AssetResponse>(await everywhere.PostAsJsonAsync("/assets", Pump(type.TypeId, "Depot pump", depot), Ct));
@@ -177,7 +177,7 @@ public sealed class AssetTests(AssetsApi api)
 
         var noLimits = Guid.NewGuid();
         var other = await api.PumpTypeAsync(noLimits);
-        Assert.Contains("plan limits haven't reached", await Problem(await api.Client(Manager(noLimits)).PostAsJsonAsync("/assets", Pump(other.TypeId), Ct), HttpStatusCode.Conflict));
+        Assert.Contains("plan limits are still being loaded", await Problem(await api.Client(Manager(noLimits)).PostAsJsonAsync("/assets", Pump(other.TypeId), Ct), HttpStatusCode.Conflict));
     }
 
     [Fact]
@@ -191,5 +191,40 @@ public sealed class AssetTests(AssetsApi api)
         var fixedBySupport = await Read<AssetResponse>(await api.Support(client, "change").PostAsJsonAsync("/assets", Pump(type.TypeId, "By support"), Ct));
         var audit = await api.Events.WaitForAsync<ClientActivityRecorded>(e => e.TargetId == fixedBySupport.Id);
         Assert.Equal("support", audit.ActorKind);
+    }
+
+    [Fact]
+    public async Task Assets_go_only_to_known_active_sites()
+    {
+        var client = await api.ClientAsync();
+        var type = await api.PumpTypeAsync(client);
+        var tower = await api.SiteAsync(client, "Tower C");
+        var http = api.Client(Manager(client));
+        await Read<AssetResponse>(await http.PostAsJsonAsync("/assets", Pump(type.TypeId, siteId: tower), Ct));
+
+        await api.SiteAsync(client, "Tower C", active: false, id: tower);
+        Assert.Equal("Tower C isn't an active site. Ask your Admin to turn it back on, or choose another site.",
+            (await FieldErrors(await http.PostAsJsonAsync("/assets", Pump(type.TypeId, "Two", tower), Ct)))["siteId"][0]);
+        Assert.Contains("doesn't exist in your company", (await FieldErrors(await http.PostAsJsonAsync("/assets", Pump(type.TypeId, "Three", Guid.NewGuid()), Ct)))["siteId"][0]);
+    }
+
+    [Fact]
+    public async Task Clients_from_before_Assets_existed_get_their_limits_and_sites_backfilled()
+    {
+        var client = Guid.NewGuid();
+        var type = await api.PumpTypeAsync(client);
+        var http = api.Client(Manager(client));
+
+        Assert.Contains("still being loaded", await Problem(await http.PostAsJsonAsync("/assets", Pump(type.TypeId), Ct), HttpStatusCode.Conflict));
+        await api.Events.WaitForAsync<ClientLimitsRequested>(e => e.ClientId == client && e.Service == "assets");
+        await api.DeliverAsync(new Contracts.Tenancy.ClientLimitsAnnounced(client, "business", 200, 10_000, 102_400, DateTimeOffset.UtcNow));
+
+        var site = Guid.NewGuid();
+        Assert.Contains("sites are still being loaded", await Problem(await http.PostAsJsonAsync("/assets", Pump(type.TypeId, siteId: site), Ct), HttpStatusCode.Conflict));
+        await api.Events.WaitForAsync<SitesRequested>(e => e.ClientId == client);
+        await api.SiteAsync(client, "Old site", id: site);
+        await Read<AssetResponse>(await http.PostAsJsonAsync("/assets", Pump(type.TypeId, siteId: site), Ct));
+        Assert.Contains("doesn't exist", (await FieldErrors(await http.PostAsJsonAsync("/assets", Pump(type.TypeId, "Two", Guid.NewGuid()), Ct)))["siteId"][0]);
+        Assert.Single(api.Events.All<SitesRequested>(), e => e.ClientId == client); // asked only once
     }
 }

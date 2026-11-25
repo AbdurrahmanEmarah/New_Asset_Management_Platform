@@ -142,6 +142,30 @@ public sealed class AssetTypeCopy
     public StatusDefinition? Status(string key) => Statuses.FirstOrDefault(s => s.Key == key);
 }
 
+/// <summary>Assets' copy of an Access site, kept in step by SiteCreated / SiteUpdated.</summary>
+public sealed class SiteCopy
+{
+    private SiteCopy() { }
+
+    public Guid SiteId { get; private set; }
+    public Guid TenantId { get; private set; }
+    public string Name { get; private set; } = "";
+    public string Code { get; private set; } = "";
+    public bool IsActive { get; private set; }
+    public DateTimeOffset ChangedAt { get; private set; }
+
+    public static SiteCopy Create(Guid tenantId, Guid siteId) => new() { TenantId = tenantId, SiteId = siteId, ChangedAt = DateTimeOffset.MinValue };
+
+    public bool TryApply(string name, string code, bool active, DateTimeOffset at)
+    {
+        if (at < ChangedAt) return false;
+        (Name, Code, IsActive, ChangedAt) = (name, code, active, at);
+        return true;
+    }
+
+    public string? CannotPlaceAssetsReason() => IsActive ? null : $"{Name} isn't an active site. Ask your Admin to turn it back on, or choose another site.";
+}
+
 /// <summary>The client's plan limit for assets, from Tenancy's events.</summary>
 public sealed class ClientLimit
 {
@@ -151,7 +175,15 @@ public sealed class ClientLimit
     public int MaxAssets { get; private set; }
     public DateTimeOffset ChangedAt { get; private set; }
 
-    public static ClientLimit Create(Guid tenantId, int maxAssets, DateTimeOffset at) => new() { TenantId = tenantId, MaxAssets = maxAssets, ChangedAt = at };
+    /// <summary>When Assets asked Access for this client's sites (backfill). A client created after site sync needs none.</summary>
+    public DateTimeOffset? SitesRequestedAt { get; private set; }
+
+    public static ClientLimit Create(Guid tenantId, int maxAssets, DateTimeOffset at, bool newClient) =>
+        new() { TenantId = tenantId, MaxAssets = maxAssets, ChangedAt = at, SitesRequestedAt = newClient ? at : null };
+
+    public bool NeedsSites => SitesRequestedAt is null;
+
+    public void SitesRequested(DateTimeOffset at) => SitesRequestedAt = at;
 
     public bool TryChange(int maxAssets, DateTimeOffset at)
     {

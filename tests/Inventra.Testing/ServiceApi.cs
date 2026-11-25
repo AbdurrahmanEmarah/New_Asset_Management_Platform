@@ -186,4 +186,6 @@ public static class ObservedSharedEvents
     public static void Handle(Inventra.Contracts.Shared.ClientActivityRecorded m, PublishedEvents e) => e.Add(m);
 
     public static void Handle(Inventra.Contracts.Shared.PlatformChangeRecorded m, PublishedEvents e) => e.Add(m);
+
+    public static void Handle(Inventra.Contracts.Shared.ClientLimitsRequested m, PublishedEvents e) => e.Add(m);
 }

@@ -68,4 +68,31 @@ public sealed class CallerTests(AccessApi api)
         var catalog = Domain.Permissions.Catalog.SelectMany(a => a.Permissions).ToDictionary(p => p.Key, p => p.Label);
         Assert.Equal(catalog.OrderBy(kv => kv.Key), PermissionNames.Labels.OrderBy(kv => kv.Key));
     }
+
+    [Fact]
+    public async Task Sites_are_sent_to_Assets_on_every_change_and_again_on_request()
+    {
+        var company = await api.CreateCompanyAsync();
+        var site = await Read<SiteResponse>(await api.Client(company.Owner).PostAsJsonAsync("/sites", new SiteRequest("Tower C", "TWC", null), Ct));
+        await api.Events.WaitForAsync<SiteCreated>(e => e.SiteId == site.Id && e.Code == "TWC" && e.IsActive);
+        await Read<SiteResponse>(await api.Client(company.Owner).PutAsJsonAsync($"/sites/{site.Id}", new SiteRequest("Tower C", "TWC", false), Ct));
+        await api.Events.WaitForAsync<SiteUpdated>(e => e.SiteId == site.Id && !e.IsActive);
+
+        var at = DateTimeOffset.UtcNow.AddMinutes(1);
+        await api.DeliverAsync(new Contracts.Assets.SitesRequested(company.Id, at));
+        await api.Events.WaitForAsync<SiteUpdated>(e => e.SiteId == site.Id && e.OccurredAt == at);
+    }
+
+    [Fact]
+    public async Task The_audit_log_filters_by_subject()
+    {
+        var company = await api.CreateCompanyAsync();
+        var asset = Guid.NewGuid();
+        foreach (var action in new[] { "asset.created", "asset.updated" })
+            await api.DeliverAsync(new ClientActivityRecorded(company.Id, "assets", "u1", "Max", "user", action, "asset", asset, action, null, DateTimeOffset.UtcNow));
+        await api.DeliverAsync(new ClientActivityRecorded(company.Id, "assets", "u1", "Max", "user", "asset.created", "asset", Guid.NewGuid(), "other", null, DateTimeOffset.UtcNow));
+
+        var history = await Read<List<AuditEntryResponse>>(await api.Client(company.Owner).GetAsync($"/audit?subjectId={asset}", Ct));
+        Assert.Equal(["asset.updated", "asset.created"], history.Select(a => a.Action).ToArray());
+    }
 }

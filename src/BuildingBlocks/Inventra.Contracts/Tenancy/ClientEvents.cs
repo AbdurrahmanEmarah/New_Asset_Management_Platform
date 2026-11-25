@@ -24,3 +24,6 @@ public sealed record ClientReactivated(Guid ClientId, DateTimeOffset OccurredAt)
 
 /// <summary>A client moved to another plan. MaxUsers, MaxAssets and StorageMb are the new limits.</summary>
 public sealed record ClientPlanChanged(Guid ClientId, string PlanKey, int MaxUsers, DateTimeOffset OccurredAt, int MaxAssets = 0, long StorageMb = 0);
+
+/// <summary>The client's current plan limits, sent in answer to ClientLimitsRequested (a backfill, not a change).</summary>
+public sealed record ClientLimitsAnnounced(Guid ClientId, string PlanKey, int MaxUsers, int MaxAssets, long StorageMb, DateTimeOffset OccurredAt);

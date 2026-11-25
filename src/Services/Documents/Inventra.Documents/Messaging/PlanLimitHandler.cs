@@ -12,6 +12,9 @@ public static class PlanLimitHandler
     public static Task Handle(ClientCreated message, DocumentsDbContext db, ITenantContext tenant, CancellationToken ct) =>
         SetAsync(message.ClientId, message.StorageMb, message.OccurredAt, db, tenant, ct);
 
+    public static Task Handle(ClientLimitsAnnounced message, DocumentsDbContext db, ITenantContext tenant, CancellationToken ct) =>
+        SetAsync(message.ClientId, message.StorageMb, message.OccurredAt, db, tenant, ct);
+
     public static Task Handle(ClientPlanChanged message, DocumentsDbContext db, ITenantContext tenant, CancellationToken ct) =>
         SetAsync(message.ClientId, message.StorageMb, message.OccurredAt, db, tenant, ct);
 

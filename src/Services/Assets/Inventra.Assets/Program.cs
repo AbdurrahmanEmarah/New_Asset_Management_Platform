@@ -14,7 +14,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 builder.AddInventraAuthentication();
 builder.AddTenantDatabase<AssetsDbContext>("assetsdb");
-builder.AddInventraMessaging("assets", "assetsdb", typeof(Program).Assembly, publishesNamespaceOf: typeof(ClientAssetsCounted), subscribesTo: ["catalog", "tenancy"]);
+builder.AddInventraMessaging("assets", "assetsdb", typeof(Program).Assembly, publishesNamespaceOf: typeof(ClientAssetsCounted), subscribesTo: ["catalog", "tenancy", "access"]);
 builder.AddClientAccess("assets");
 builder.Services.AddOpenApi();
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower)));

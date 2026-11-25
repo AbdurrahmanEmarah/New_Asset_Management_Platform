@@ -109,6 +109,7 @@ builder.AddViteApp("admin-web", "../../../web", "dev:admin")
     .WithEnvironment("VITE_API_URL", gateway.GetEndpoint("http"))
     .WithEnvironment("VITE_OIDC_AUTHORITY", platformIssuer)
     .WithEnvironment("VITE_OIDC_CLIENT_ID", "admin-console")
+    .WithEnvironment("VITE_CLIENT_APP_URL", "http://localhost:" + clientWebPort)
     .WaitFor(gateway)
     .WithExternalHttpEndpoints();
 
@@ -118,6 +119,8 @@ builder.AddViteApp("client-web", "../../../web", "dev:client")
     .WithEnvironment("VITE_API_URL", gateway.GetEndpoint("http"))
     .WithEnvironment("VITE_OIDC_AUTHORITY", tenantIssuer)
     .WithEnvironment("VITE_OIDC_CLIENT_ID", "web-app")
+    .WithEnvironment("VITE_SUPPORT_OIDC_AUTHORITY", platformIssuer)
+    .WithEnvironment("VITE_SUPPORT_OIDC_CLIENT_ID", "support-web")
     .WaitFor(gateway)
     .WithExternalHttpEndpoints();
 

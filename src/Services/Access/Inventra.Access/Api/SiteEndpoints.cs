@@ -2,7 +2,9 @@ using Inventra.Access.Data;
 using Inventra.Access.Domain;
 using Inventra.BuildingBlocks.Data;
 using Inventra.BuildingBlocks.Http;
+using Inventra.Contracts.Access;
 using Microsoft.EntityFrameworkCore;
+using Wolverine.EntityFrameworkCore;
 
 namespace Inventra.Access.Api;
 
@@ -20,18 +22,19 @@ public static class SiteEndpoints
     internal static async Task<IResult> ListSites(AccessDbContext db, CancellationToken ct) =>
         TypedResults.Ok((await db.Sites.AsNoTracking().OrderBy(s => s.Name).ToListAsync(ct)).Select(SiteResponse.From).ToList());
 
-    internal static async Task<IResult> CreateSite(SiteRequest request, Caller caller, AccessDbContext db, TimeProvider clock, CancellationToken ct)
+    internal static async Task<IResult> CreateSite(SiteRequest request, Caller caller, AccessDbContext db, IDbContextOutbox<AccessDbContext> outbox, TimeProvider clock, CancellationToken ct)
     {
         if (await ValidateAsync(request, db, null, ct) is { } invalid) return invalid;
         var now = clock.GetUtcNow();
         var site = Site.Create(caller.TenantId, request.Name!, request.Code!, now);
         db.Sites.Add(site);
         db.AuditEntries.Add(caller.Audit(AccessAuditActions.SiteCreated, "site", site.Id, $"Added site {site.Name} ({site.Code}).", now));
-        if (await SaveAsync(db, site.Code, ct) is { } taken) return taken;
+        await outbox.PublishAsync(new SiteCreated(site.TenantId, site.Id, site.Name, site.Code, site.IsActive, now));
+        if (await SaveAsync(outbox, site.Code, ct) is { } taken) return taken;
         return TypedResults.Created($"/sites/{site.Id}", SiteResponse.From(site));
     }
 
-    internal static async Task<IResult> UpdateSite(Guid id, SiteRequest request, Caller caller, AccessDbContext db, TimeProvider clock, CancellationToken ct)
+    internal static async Task<IResult> UpdateSite(Guid id, SiteRequest request, Caller caller, AccessDbContext db, IDbContextOutbox<AccessDbContext> outbox, TimeProvider clock, CancellationToken ct)
     {
         var site = await db.Sites.FirstOrDefaultAsync(s => s.Id == id, ct);
         if (site is null) return Problems.NotFound("No site has this id.");
@@ -40,8 +43,10 @@ public static class SiteEndpoints
         var before = $"{site.Name} ({site.Code}){(site.IsActive ? "" : ", inactive")}";
         site.Update(request.Name!, request.Code!, request.IsActive ?? site.IsActive);
         var after = $"{site.Name} ({site.Code}){(site.IsActive ? "" : ", inactive")}";
-        db.AuditEntries.Add(caller.Audit(AccessAuditActions.SiteUpdated, "site", site.Id, $"{before} → {after}.", clock.GetUtcNow()));
-        if (await SaveAsync(db, site.Code, ct) is { } taken) return taken;
+        var now = clock.GetUtcNow();
+        db.AuditEntries.Add(caller.Audit(AccessAuditActions.SiteUpdated, "site", site.Id, $"{before} → {after}.", now));
+        await outbox.PublishAsync(new SiteUpdated(site.TenantId, site.Id, site.Name, site.Code, site.IsActive, now));
+        if (await SaveAsync(outbox, site.Code, ct) is { } taken) return taken;
         return TypedResults.Ok(SiteResponse.From(site));
     }
 
@@ -59,11 +64,12 @@ public static class SiteEndpoints
         return errors.Any ? errors.ToResult() : null;
     }
 
-    private static async Task<IResult?> SaveAsync(AccessDbContext db, string code, CancellationToken ct)
+    /// <summary>Saves the site, its audit entry and the event for Assets in one transaction.</summary>
+    private static async Task<IResult?> SaveAsync(IDbContextOutbox<AccessDbContext> outbox, string code, CancellationToken ct)
     {
         try
         {
-            await db.SaveChangesAsync(ct);
+            await outbox.SaveChangesAndFlushMessagesAsync(ct);
             return null;
         }
         catch (DbUpdateException ex) when (ex.IsUniqueViolation(AccessDbContext.SiteCodeIndex))

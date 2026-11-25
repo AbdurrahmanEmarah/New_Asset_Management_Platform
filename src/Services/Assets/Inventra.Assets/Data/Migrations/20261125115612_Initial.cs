@@ -41,11 +41,28 @@ namespace Inventra.Assets.Data.Migrations
                 {
                     tenant_id = table.Column<Guid>(type: "uuid", nullable: false),
                     max_assets = table.Column<int>(type: "integer", nullable: false),
-                    changed_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
+                    changed_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    sites_requested_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("pk_client_limits", x => x.tenant_id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "sites",
+                columns: table => new
+                {
+                    site_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    tenant_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    name = table.Column<string>(type: "character varying(120)", maxLength: 120, nullable: false),
+                    code = table.Column<string>(type: "character varying(16)", maxLength: 16, nullable: false),
+                    is_active = table.Column<bool>(type: "boolean", nullable: false),
+                    changed_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_sites", x => x.site_id);
                 });
 
             migrationBuilder.CreateTable(
@@ -121,8 +138,13 @@ namespace Inventra.Assets.Data.Migrations
                 table: "assets",
                 column: "type_id");
 
+            migrationBuilder.CreateIndex(
+                name: "ix_sites_tenant_id",
+                table: "sites",
+                column: "tenant_id");
+
             migrationBuilder.CreateRowSecurityRole("wolverine");
-            foreach (var table in new[] { "assets", "asset_types", "client_limits" })
+            foreach (var table in new[] { "assets", "asset_types", "client_limits", "sites" })
             {
                 migrationBuilder.EnableTenantRowSecurity(table);
             }
@@ -138,6 +160,9 @@ namespace Inventra.Assets.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "client_limits");
+
+            migrationBuilder.DropTable(
+                name: "sites");
 
             migrationBuilder.DropTable(
                 name: "asset_types");

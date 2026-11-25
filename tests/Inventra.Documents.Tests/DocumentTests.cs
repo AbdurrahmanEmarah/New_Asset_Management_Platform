@@ -104,4 +104,16 @@ public sealed class DocumentTests(DocumentsApi api)
         await api.Events.WaitForAsync<ClientActivityRecorded>(e => e.ClientId == client && e.Action == "document.opened" && e.ActorKind == "support");
         Assert.Contains("read-only", await Problem(await api.Support(client).DeleteAsync($"/documents/{doc.Id}", Ct), HttpStatusCode.Forbidden));
     }
+
+    [Fact]
+    public async Task Clients_from_before_Documents_existed_get_their_limits_backfilled()
+    {
+        var client = Guid.NewGuid();
+        var asset = api.Assets.Add("PMP-000008");
+        var http = api.Client(Editor(client));
+        Assert.Contains("still being loaded", await Problem(await http.PostAsync($"/assets/{asset}/documents", File(Pdf, "a.pdf"), Ct), HttpStatusCode.Conflict));
+        await api.Events.WaitForAsync<ClientLimitsRequested>(e => e.ClientId == client && e.Service == "documents");
+        await api.DeliverAsync(new Contracts.Tenancy.ClientLimitsAnnounced(client, "business", 200, 10_000, 1024, DateTimeOffset.UtcNow));
+        await Read<DocumentResponse>(await http.PostAsync($"/assets/{asset}/documents", File(Pdf, "a.pdf"), Ct));
+    }
 }

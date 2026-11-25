@@ -19,3 +19,9 @@ public sealed record PlatformActivityRecorded(
     Guid ClientId,
     string Details,
     DateTimeOffset OccurredAt);
+
+/// <summary>A site was added in Access. Assets keeps a copy to check the sites assets are placed at.</summary>
+public sealed record SiteCreated(Guid ClientId, Guid SiteId, string Name, string Code, bool IsActive, DateTimeOffset OccurredAt);
+
+/// <summary>A site changed (renamed, recoded, turned off or on), or was re-sent for a backfill.</summary>
+public sealed record SiteUpdated(Guid ClientId, Guid SiteId, string Name, string Code, bool IsActive, DateTimeOffset OccurredAt);
