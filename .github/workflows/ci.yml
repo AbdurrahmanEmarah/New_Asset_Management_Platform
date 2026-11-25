@@ -52,6 +52,9 @@ jobs:
           # Note: for dotnet ef, -c means --context, so the configuration must be spelled out.
           dotnet ef migrations has-pending-model-changes --project src/Services/Tenancy/Inventra.Tenancy --no-build --configuration Release
           dotnet ef migrations has-pending-model-changes --project src/Services/Access/Inventra.Access --no-build --configuration Release
+          dotnet ef migrations has-pending-model-changes --project src/Services/Catalog/Inventra.Catalog --no-build --configuration Release
+          dotnet ef migrations has-pending-model-changes --project src/Services/Assets/Inventra.Assets --no-build --configuration Release
+          dotnet ef migrations has-pending-model-changes --project src/Services/Documents/Inventra.Documents --no-build --configuration Release
       - name: Test
         run: dotnet test Inventra.slnx --no-build -c Release --logger "console;verbosity=normal" --blame-hang-timeout 10m
 

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <RootNamespace>Inventra.Documents</RootNamespace>
+    <UserSecretsId>inventra-documents</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\Inventra.BuildingBlocks\Inventra.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\Inventra.BuildingBlocks.Messaging\Inventra.BuildingBlocks.Messaging.csproj" />
+    <PackageReference Include="Azure.Storage.Blobs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Inventra.Documents.Tests" />
+  </ItemGroup>
+</Project>

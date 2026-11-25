@@ -12,7 +12,9 @@ public sealed record ClientCreated(
     int MaxUsers,
     string OwnerName,
     string OwnerEmail,
-    DateTimeOffset OccurredAt);
+    DateTimeOffset OccurredAt,
+    int MaxAssets = 0,
+    long StorageMb = 0);
 
 /// <summary>A client was suspended. Its users can't sign in until it is reactivated.</summary>
 public sealed record ClientSuspended(Guid ClientId, string Reason, DateTimeOffset OccurredAt);
@@ -20,5 +22,5 @@ public sealed record ClientSuspended(Guid ClientId, string Reason, DateTimeOffse
 /// <summary>A suspended client was reactivated.</summary>
 public sealed record ClientReactivated(Guid ClientId, DateTimeOffset OccurredAt);
 
-/// <summary>A client moved to another plan. MaxUsers is the new seat limit.</summary>
-public sealed record ClientPlanChanged(Guid ClientId, string PlanKey, int MaxUsers, DateTimeOffset OccurredAt);
+/// <summary>A client moved to another plan. MaxUsers, MaxAssets and StorageMb are the new limits.</summary>
+public sealed record ClientPlanChanged(Guid ClientId, string PlanKey, int MaxUsers, DateTimeOffset OccurredAt, int MaxAssets = 0, long StorageMb = 0);

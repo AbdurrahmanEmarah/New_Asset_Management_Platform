@@ -6,13 +6,28 @@
     <Project Path="src/BuildingBlocks/Inventra.Contracts/Inventra.Contracts.csproj" />
     <Project Path="src/Gateway/Inventra.Gateway/Inventra.Gateway.csproj" />
   </Folder>
+  <Folder Name="/src/BuildingBlocks/">
+    <Project Path="src/BuildingBlocks/Inventra.AssetModel/Inventra.AssetModel.csproj" />
+  </Folder>
   <Folder Name="/src/Services/">
     <Project Path="src/Services/Access/Inventra.Access/Inventra.Access.csproj" />
     <Project Path="src/Services/Tenancy/Inventra.Tenancy/Inventra.Tenancy.csproj" />
   </Folder>
+  <Folder Name="/src/Services/Assets/">
+    <Project Path="src/Services/Assets/Inventra.Assets/Inventra.Assets.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Catalog/">
+    <Project Path="src/Services/Catalog/Inventra.Catalog/Inventra.Catalog.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Documents/">
+    <Project Path="src/Services/Documents/Inventra.Documents/Inventra.Documents.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Inventra.Access.Tests/Inventra.Access.Tests.csproj" />
+    <Project Path="tests/Inventra.Assets.Tests/Inventra.Assets.Tests.csproj" />
     <Project Path="tests/Inventra.BuildingBlocks.Tests/Inventra.BuildingBlocks.Tests.csproj" />
+    <Project Path="tests/Inventra.Catalog.Tests/Inventra.Catalog.Tests.csproj" />
+    <Project Path="tests/Inventra.Documents.Tests/Inventra.Documents.Tests.csproj" />
     <Project Path="tests/Inventra.Tenancy.Tests/Inventra.Tenancy.Tests.csproj" />
     <Project Path="tests/Inventra.Testing/Inventra.Testing.csproj" />
   </Folder>

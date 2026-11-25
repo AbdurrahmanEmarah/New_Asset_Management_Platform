@@ -33,6 +33,9 @@ public static class MessagingExtensions
     public const string BrokerConnectionName = "rabbitmq";
     public const string Schema = "wolverine";
 
+    /// <summary>Events any client service publishes on its own exchange (e.g. ClientActivityRecorded).</summary>
+    public const string SharedNamespace = "Inventra.Contracts.Shared";
+
     public static string ExchangeFor(string service) => $"inventra.{service}.events";
 
     public static string QueueFor(string subscriber, string publisher) => $"{subscriber}.{publisher}-events";
@@ -96,6 +99,7 @@ public static class MessagingExtensions
                 opts.Publish(p =>
                 {
                     p.MessagesFromNamespace(publishesNamespaceOf.Namespace!);
+                    p.MessagesFromNamespace(SharedNamespace);
                     p.ToAzureServiceBusTopic(ExchangeFor(service));
                 });
 
@@ -111,6 +115,7 @@ public static class MessagingExtensions
                 opts.Publish(p =>
                 {
                     p.MessagesFromNamespace(publishesNamespaceOf.Namespace!);
+                    p.MessagesFromNamespace(SharedNamespace);
                     p.ToRabbitExchange(ExchangeFor(service), e => e.ExchangeType = ExchangeType.Fanout);
                 });
 

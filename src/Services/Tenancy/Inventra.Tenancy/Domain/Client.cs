@@ -107,6 +107,27 @@ public sealed class Client
         StorageUsedMb = storageMb;
     }
 
+    public DateTimeOffset? AssetsCountedAt { get; private set; }
+    public DateTimeOffset? StorageCountedAt { get; private set; }
+
+    /// <summary>Applies an asset count from Assets unless a newer one was already applied.</summary>
+    public bool ApplyAssetCount(int assets, DateTimeOffset countedAt)
+    {
+        if (AssetsCountedAt is { } last && last >= countedAt) return false;
+        AssetsUsed = Math.Max(0, assets);
+        AssetsCountedAt = countedAt;
+        return true;
+    }
+
+    /// <summary>Applies a storage total from Documents unless a newer one was already applied. Rounded up to whole MB.</summary>
+    public bool ApplyStorage(long bytes, DateTimeOffset countedAt)
+    {
+        if (StorageCountedAt is { } last && last >= countedAt) return false;
+        StorageUsedMb = (Math.Max(0, bytes) + (1024 * 1024 - 1)) / (1024 * 1024);
+        StorageCountedAt = countedAt;
+        return true;
+    }
+
     /// <summary>Applies a seat count from Access unless a newer one was already applied. True when applied.</summary>
     public bool ApplyUserCount(int seats, DateTimeOffset countedAt)
     {

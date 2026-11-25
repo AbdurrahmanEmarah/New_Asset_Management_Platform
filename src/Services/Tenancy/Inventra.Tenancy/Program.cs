@@ -12,7 +12,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 builder.AddInventraAuthentication();
 builder.AddServiceDatabase<TenancyDbContext>("tenancydb");
-builder.AddInventraMessaging("tenancy", "tenancydb", typeof(Program).Assembly, publishesNamespaceOf: typeof(ClientCreated), subscribesTo: ["access"]);
+builder.AddInventraMessaging("tenancy", "tenancydb", typeof(Program).Assembly, publishesNamespaceOf: typeof(ClientCreated), subscribesTo: ["access", "catalog", "assets", "documents"]);
 builder.Services.AddOpenApi();
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 

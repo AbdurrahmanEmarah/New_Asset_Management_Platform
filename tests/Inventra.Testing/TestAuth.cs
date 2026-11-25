@@ -29,11 +29,21 @@ public sealed record TestUser(string Id, string Name, string Realm, params strin
 
     public bool EmailVerified { get; init; } = true;
 
+    /// <summary>For client services' tests: the sites where this member's permissions apply (empty = every site).</summary>
+    public IReadOnlyList<Guid> Sites { get; init; } = [];
+
+    /// <summary>
+    /// A member of a client for Catalog, Assets and Documents tests. Roles hold the member's permissions
+    /// (e.g. "assets.read"); the fake caller directory turns them into Access's caller answer.
+    /// </summary>
+    public static TestUser Member(Guid tenantId, string name, params string[] permissions) =>
+        new($"sub-{Guid.NewGuid():N}", name, InventraClaims.TenantRealm, permissions) { TenantId = tenantId, Email = $"{name.Replace(' ', '.').ToLowerInvariant()}@example.test" };
+
     /// <summary>A client user signed in through the tenant realm. Leave tenantId null for someone who hasn't joined a client yet.</summary>
     public static TestUser Tenant(Guid? tenantId, string id, string name, string email) =>
         new(id, name, InventraClaims.TenantRealm) { TenantId = tenantId, Email = email };
 
-    public string Encode() => string.Join('|', [Id, Name, Realm, string.Join(',', Roles), TenantId?.ToString() ?? "", Email ?? "", EmailVerified ? "1" : "0"]);
+    public string Encode() => string.Join('|', [Id, Name, Realm, string.Join(',', Roles), TenantId?.ToString() ?? "", Email ?? "", EmailVerified ? "1" : "0", string.Join(',', Sites)]);
 
     public static TestUser Decode(string value)
     {
@@ -43,6 +53,7 @@ public sealed record TestUser(string Id, string Name, string Realm, params strin
             TenantId = parts.Length > 4 && Guid.TryParse(parts[4], out var tenant) ? tenant : null,
             Email = parts.Length > 5 && parts[5].Length > 0 ? parts[5] : null,
             EmailVerified = parts.Length <= 6 || parts[6] == "1",
+            Sites = parts.Length > 7 ? parts[7].Split(',', StringSplitOptions.RemoveEmptyEntries).Select(Guid.Parse).ToArray() : [],
         };
     }
 }
