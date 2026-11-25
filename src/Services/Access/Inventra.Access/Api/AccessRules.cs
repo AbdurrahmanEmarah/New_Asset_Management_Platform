@@ -18,9 +18,6 @@ public sealed class AccessOptions
     /// <summary>Accept an invitation only from a sign-in whose email the identity provider verified.</summary>
     public bool RequireVerifiedEmail { get; set; } = true;
 
-    /// <summary>Local development only: write invitation links to the log, since no email is sent yet.</summary>
-    public bool LogInvitationLinks { get; set; }
-
     /// <summary>The token goes in the fragment, so it never reaches a server log.</summary>
     public string AcceptUrl(string token) => $"{WebAppUrl.TrimEnd('/')}/join#{token}";
 }

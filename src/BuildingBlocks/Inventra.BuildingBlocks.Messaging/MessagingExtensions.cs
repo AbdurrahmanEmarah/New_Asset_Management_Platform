@@ -70,6 +70,13 @@ public static class MessagingExtensions
             }.ConnectionString, Schema);
             opts.UseEntityFrameworkCoreTransactions();
 
+            // The storage tables come from the service's EF migrations (CreateWolverineStorage), run
+            // by the migrator. Only where the service migrates itself (locally, tests) may Wolverine
+            // create or update them; in Azure the runtime login can't, so Wolverine must not try.
+            opts.AutoBuildMessageStorageOnStartup = builder.Configuration.GetValue("Database:MigrateOnStartup", false)
+                ? JasperFx.AutoCreate.CreateOrUpdate
+                : JasperFx.AutoCreate.None;
+
             opts.Policies.UseDurableLocalQueues();
             opts.Policies.UseDurableInboxOnAllListeners();
             opts.Policies.UseDurableOutboxOnAllSendingEndpoints();

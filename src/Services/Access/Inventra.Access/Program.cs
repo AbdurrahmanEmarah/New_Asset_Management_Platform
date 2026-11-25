@@ -31,6 +31,7 @@ else
 var app = builder.Build();
 
 await app.MigrateIfConfiguredAsync<AccessDbContext>();
+await app.EnsureRowSecurityAppliesAsync<AccessDbContext>();
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();

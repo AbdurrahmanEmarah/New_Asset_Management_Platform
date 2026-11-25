@@ -54,9 +54,10 @@ var access = builder.AddProject<Projects.Inventra_Access>("access")
     .WithEnvironment("Identity__Keycloak__BaseUrl", keycloakUrl)
     .WithEnvironment("Identity__Keycloak__ClientSecret", accessServiceSecret)
     .WithEnvironment("Access__WebAppUrl", "http://localhost:" + clientWebPort)
-    // No email is sent yet: verification is off locally and invitation links are logged.
-    .WithEnvironment("Access__RequireVerifiedEmail", "false")
-    .WithEnvironment("Access__LogInvitationLinks", "true");
+    // Locally the login is a superuser, so each connection switches to the restricted role.
+    .WithEnvironment("Database__RowSecurityRole", "inventra_app")
+    // No email is sent yet, so verification is off locally. Invitation links are shown in the apps, never logged.
+    .WithEnvironment("Access__RequireVerifiedEmail", "false");
 
 var gateway = builder.AddProject<Projects.Inventra_Gateway>("gateway")
     .WithReference(tenancy).WaitFor(tenancy)

@@ -10,6 +10,9 @@
     <ProjectReference Include="..\Inventra.Contracts\Inventra.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Storage\*.sql" LogicalName="Inventra.Messaging.%(Filename).sql" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="WolverineFx" />
     <PackageReference Include="WolverineFx.Postgresql" />
     <PackageReference Include="WolverineFx.EntityFrameworkCore" />

@@ -39,7 +39,8 @@ public static class ClientCreatedHandler
         db.Roles.AddRange(roles);
 
         var owner = AppUser.Invite(client.TenantId, message.OwnerEmail, message.OwnerName, [new RoleAssignment(roles.Single(r => r.IsOwner).Id, [])], "Inventra", now);
-        var (invitation, token) = Invitation.Create(owner, "Inventra", now);
+        // The token is never logged or stored: the admin console reissues the Owner's link when needed.
+        var (invitation, _) = Invitation.Create(owner, "Inventra", now);
         db.Users.Add(owner);
         db.Invitations.Add(invitation);
         db.AuditEntries.Add(AuditEntry.System(client.TenantId, AccessAuditActions.ClientProvisioned,
@@ -47,8 +48,7 @@ public static class ClientCreatedHandler
 
         await Seats.SaveAndReportAsync(db, outbox, client, now, ct);
 
-        if (options.Value.LogInvitationLinks)
-            logger.LogInformation("Owner invitation for {Client} ({Email}): {Link}", client.Name, owner.Email, options.Value.AcceptUrl(token));
+        logger.LogInformation("Set up client {ClientId} and created Owner invitation {InvitationId} for {Email}", client.TenantId, invitation.Id, owner.Email);
     }
 }
 

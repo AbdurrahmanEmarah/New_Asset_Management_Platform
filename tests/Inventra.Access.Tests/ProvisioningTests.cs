@@ -41,6 +41,18 @@ public sealed class ProvisioningTests(AccessApi api)
     }
 
     [Fact]
+    public async Task Invitation_links_and_tokens_never_reach_the_log()
+    {
+        var company = await api.CreateCompanyAsync("Quiet Logs Ltd");
+        var (_, _) = await api.AddMemberAsync(company, "technician");
+
+        var lines = api.Logs.Lines.Select(l => l.Message).ToList();
+        Assert.Contains(lines, m => m.Contains($"Set up client {company.Id} and created Owner invitation", StringComparison.Ordinal));
+        Assert.DoesNotContain(lines, m => m.Contains("/join", StringComparison.Ordinal));
+        Assert.DoesNotContain(lines, m => m.Contains($"{company.Id:N}.", StringComparison.Ordinal)); // every token starts with the client id
+    }
+
+    [Fact]
     public async Task A_repeated_ClientCreated_changes_nothing()
     {
         var company = await api.CreateCompanyAsync();
