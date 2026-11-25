@@ -70,7 +70,8 @@ export function UsersPage() {
   const seats = summary.data;
   const manageReason = needs(me, PERMISSIONS.manageUsers, 'manage users');
   const seatsFull = seats?.state === 'blocked';
-  const fullReason = seats ? `All ${seats.limit} seats on your plan are in use. Deactivate someone, or ask Inventra to raise your plan.` : null;
+  // Same sentence as the server's refusal (Access ClientAccount), unless the summary carries its own.
+  const fullReason = seats ? seats.blockedReason ?? `Your plan allows ${seats.limit} users and all ${seats.limit} are in use (active users and open invitations). Deactivate someone or cancel an invitation, or ask your Owner about a bigger plan.` : null;
   const inviteReason = manageReason ?? (seatsFull ? fullReason : null);
   const filtering = filter !== 'all' || debounced.trim() !== '' || roleId !== null;
 

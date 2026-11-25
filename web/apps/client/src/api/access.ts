@@ -56,7 +56,11 @@ export interface User {
   cannotChangeRolesReason: string | null;
 }
 
-export interface SeatSummary { seats: number; active: number; invited: number; deactivated: number; limit: number; state: UsageState }
+export interface SeatSummary {
+  seats: number; active: number; invited: number; deactivated: number; limit: number; state: UsageState;
+  /** The server's sentence when no seat is free, if it sends one (asked of Backend). */
+  blockedReason?: string | null;
+}
 
 export interface NewInvite { email: string; name: string; roles: AssignmentInput[] }
 

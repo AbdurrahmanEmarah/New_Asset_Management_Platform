@@ -127,7 +127,7 @@ export function createDemoAccessApi(options: DemoOptions = {}): AccessApi {
   const seatsUsed = () => users.filter((u) => u.status !== 'deactivated').length;
   const me = () => users.find((u) => u.id === meId)!;
   const isOwner = (u: StoredUser) => hasRole(u, 'owner');
-  const seatsFull = () => `All ${seatLimit} seats on your plan are in use. Deactivate someone or ask Inventra to raise your plan.`;
+  const seatsFull = () => `Your plan allows ${seatLimit} users and all ${seatLimit} are in use (active users and open invitations). Deactivate someone or cancel an invitation, or ask your Owner about a bigger plan.`;
 
   function deactivateReason(u: StoredUser): string | null {
     if (u.status === 'deactivated') return 'This person is already deactivated.';
