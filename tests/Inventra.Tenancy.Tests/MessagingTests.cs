@@ -77,3 +77,30 @@ public sealed class MessagingTests(TenancyApi api) : IClassFixture<TenancyApi>
         Assert.False(Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions.HasPendingModelChanges(db.Database));
     }
 }
+
+public sealed class UsageTests(TenancyApi api) : IClassFixture<TenancyApi>
+{
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    [Fact]
+    public async Task Asset_and_storage_counts_fill_the_usage_bars_and_platform_changes_are_audited()
+    {
+        var slug = $"u-{Guid.NewGuid():N}"[..20];
+        var created = await api.Client(TestUser.PlatformOwner).PostAsJsonAsync("/clients",
+            new CreateClientRequest("Usage Co.", slug, "uae-north", "starter", "Mona Haddad", "mona@usage.example"), Ct);
+        var client = (await created.Content.ReadFromJsonAsync<ClientResponse>(Json, Ct))!;
+        var at = DateTimeOffset.UtcNow;
+
+        await api.DeliverAsync(new Inventra.Contracts.Assets.ClientAssetsCounted(client.Id, 1700, at));
+        await api.DeliverAsync(new Inventra.Contracts.Assets.ClientAssetsCounted(client.Id, 5, at.AddMinutes(-1)));
+        await api.DeliverAsync(new Inventra.Contracts.Documents.ClientStorageCounted(client.Id, 3L * 1024 * 1024 + 1, at));
+        await api.DeliverAsync(new Inventra.Contracts.Shared.PlatformChangeRecorded("catalog", "owner-1", "Platform Owner", "template.saved", "Saved template \"Pump\".", at));
+
+        var fresh = await api.Client(TestUser.PlatformOwner).GetFromJsonAsync<ClientResponse>($"/clients/{client.Id}", Json, Ct);
+        Assert.Equal(new UsageLine(1700, 2000, "warn"), fresh!.Usage.Assets);
+        Assert.Equal(4, fresh.Usage.StorageMb.Used);
+        var audit = await api.Client(TestUser.PlatformOwner).GetFromJsonAsync<List<AuditEntryResponse>>("/audit?take=50", Json, Ct);
+        Assert.Contains(audit!, a => a.Action == "template.saved" && a.ClientId == null);
+    }
+}

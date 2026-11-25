@@ -24,7 +24,7 @@ public static class DocumentEndpoints
             .Accepts<IFormFile>("multipart/form-data").Produces<DocumentResponse>(201).ProducesValidationProblem().ProducesProblem(404).ProducesProblem(409)
             .WithSummary("Uploads one PDF or image (PNG, JPEG, WebP) up to 25 MB, as the form field \"file\".");
         app.MapGet("/documents/{id:guid}", Get).WithTags("Documents").RequirePermission("assets.read").Produces<DocumentResponse>().ProducesProblem(404);
-        app.MapPost("/documents/{id:guid}/link", Link).WithTags("Documents").RequirePermission("assets.read").Produces<DownloadLinkResponse>().ProducesProblem(404)
+        app.MapGet("/documents/{id:guid}/link", Link).WithTags("Documents").RequirePermission("assets.read").Produces<DownloadLinkResponse>().ProducesProblem(404)
             .WithSummary("A short-lived download link (5 minutes).");
         app.MapDelete("/documents/{id:guid}", Delete).WithTags("Documents").RequirePermission("assets.write").Produces(204).ProducesProblem(404).ProducesProblem(409);
         app.MapGet("/usage", Usage).WithTags("Documents").RequirePermission("assets.read").Produces<StorageUsageResponse>();

@@ -128,6 +128,43 @@ public abstract class ServiceApi<TProgram> : IAsyncLifetime where TProgram : cla
             $"The {contract} API changed but docs/contracts/{contract}.openapi.json didn't. Run the tests with INVENTRA_UPDATE_CONTRACTS=1 and commit the file.");
     }
 
+    /// <summary>
+    /// Every table in public has tenant_id with a forced tenant_isolation policy, except the listed shared ones
+    /// (which must have no tenant_id), and the restricted role can't bypass row-level security.
+    /// </summary>
+    public async Task AssertRowSecurityAsync(IEnumerable<string> tenantTables, params string[] sharedTables)
+    {
+        await using var conn = new Npgsql.NpgsqlConnection(ConnectionString);
+        await conn.OpenAsync();
+        await using var cmd = new Npgsql.NpgsqlCommand("""
+            SELECT c.relname, c.relrowsecurity, c.relforcerowsecurity,
+                   EXISTS (SELECT 1 FROM pg_policies p WHERE p.schemaname = 'public' AND p.tablename = c.relname AND p.policyname = 'tenant_isolation'),
+                   EXISTS (SELECT 1 FROM information_schema.columns col WHERE col.table_schema = 'public' AND col.table_name = c.relname AND col.column_name = 'tenant_id')
+            FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relname <> '__EFMigrationsHistory'
+            """, conn);
+        var seen = new List<string>();
+        await using (var reader = await cmd.ExecuteReaderAsync())
+        {
+            while (await reader.ReadAsync())
+            {
+                var table = reader.GetString(0);
+                seen.Add(table);
+                if (sharedTables.Contains(table))
+                {
+                    Assert.False(reader.GetBoolean(4), $"{table} is listed as shared but has a tenant_id column.");
+                    continue;
+                }
+
+                Assert.True(reader.GetBoolean(4), $"{table} has no tenant_id column.");
+                Assert.True(reader.GetBoolean(1) && reader.GetBoolean(2), $"{table} doesn't have forced row-level security.");
+                Assert.True(reader.GetBoolean(3), $"{table} has no tenant_isolation policy.");
+            }
+        }
+
+        Assert.Equal(tenantTables.Concat(sharedTables).Order(), seen.Order());
+    }
+
     private static string Format(string json)
     {
         var node = JsonNode.Parse(json)!;

@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Inventra.Documents.Messaging;
 
 /// <summary>Keeps the plan's storage limit in step with Tenancy.</summary>
-public static class PlanLimitHandlers
+public static class PlanLimitHandler
 {
     public static Task Handle(ClientCreated message, DocumentsDbContext db, ITenantContext tenant, CancellationToken ct) =>
         SetAsync(message.ClientId, message.StorageMb, message.OccurredAt, db, tenant, ct);

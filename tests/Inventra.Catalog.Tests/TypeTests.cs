@@ -150,3 +150,10 @@ public sealed class TypeTests(CatalogApi api)
         Assert.False(Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions.HasPendingModelChanges(db.Database));
     }
 }
+
+public sealed class RowSecurityTests(CatalogApi api)
+{
+    [Fact]
+    public Task Client_tables_have_forced_policies_and_templates_are_shared() =>
+        api.AssertRowSecurityAsync(Data.CatalogDbContext.TenantTables, Data.CatalogDbContext.SharedTables);
+}

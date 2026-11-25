@@ -126,10 +126,9 @@ public static class AssetEndpoints
         CreateAssetRequest request, ClientCaller caller, AssetsDbContext db, IDbContextOutbox<AssetsDbContext> outbox, TimeProvider clock, CancellationToken ct)
     {
         var errors = new RuleErrors();
-        if (request.TypeId is null) errors.Add("typeId", "Choose the asset type.");
+        if (request.TypeId is null) return new FieldErrors().Add("typeId", "Choose the asset type.").ToResult();
         CheckName(request.Name, errors);
         if (request.Location?.Trim().Length > Asset.LocationMax) errors.Add("location", $"Use {Asset.LocationMax} characters or fewer.");
-        if (errors.Any) return Problems.Validation(errors.ToDictionary());
 
         var type = await db.Types.FirstOrDefaultAsync(t => t.TypeId == request.TypeId, ct);
         if (type is null)

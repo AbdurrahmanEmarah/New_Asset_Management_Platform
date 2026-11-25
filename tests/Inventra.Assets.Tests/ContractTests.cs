@@ -13,3 +13,9 @@ public sealed class ContractTests(AssetsApi api)
         Assert.False(scope.ServiceProvider.GetRequiredService<Data.AssetsDbContext>().Database.HasPendingModelChanges());
     }
 }
+
+public sealed class RowSecurityTests(AssetsApi api)
+{
+    [Fact]
+    public Task Every_table_has_a_forced_tenant_policy() => api.AssertRowSecurityAsync(Data.AssetsDbContext.TenantTables);
+}

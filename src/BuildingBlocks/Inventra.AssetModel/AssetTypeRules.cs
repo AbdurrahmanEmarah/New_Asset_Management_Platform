@@ -208,7 +208,8 @@ public static class AssetValues
     private static JsonNode? Number(FieldDefinition f, FieldRules r, JsonNode node, RuleErrors errors, string at)
     {
         decimal number;
-        if (node is JsonValue v && v.GetValueKind() == JsonValueKind.Number && v.TryGetValue<decimal>(out var d)) number = d;
+        if (node is JsonValue v && v.GetValueKind() == JsonValueKind.Number
+            && decimal.TryParse(v.ToJsonString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var d)) number = d;
         else if (node is JsonValue sv && sv.TryGetValue<string>(out var text)
                  && decimal.TryParse(text.Trim(), NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed)) number = parsed;
         else return Fail(errors, at, $"{f.Label} must be a number, e.g. 12.5.");

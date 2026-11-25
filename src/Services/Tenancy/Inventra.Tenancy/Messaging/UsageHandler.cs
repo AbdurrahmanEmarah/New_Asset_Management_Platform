@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Inventra.Tenancy.Messaging;
 
 /// <summary>Keeps the asset and storage usage bars in step with Assets and Documents.</summary>
-public static class UsageHandlers
+public static class UsageHandler
 {
     public static async Task Handle(ClientAssetsCounted message, TenancyDbContext db, CancellationToken ct)
     {

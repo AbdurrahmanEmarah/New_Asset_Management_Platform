@@ -21,7 +21,7 @@ public static class AssetTypePublishedHandler
 }
 
 /// <summary>Keeps the plan's asset limit in step with Tenancy.</summary>
-public static class PlanLimitHandlers
+public static class PlanLimitHandler
 {
     public static Task Handle(ClientCreated message, AssetsDbContext db, ITenantContext tenant, CancellationToken ct) =>
         SetAsync(message.ClientId, message.MaxAssets, message.OccurredAt, db, tenant, ct);
