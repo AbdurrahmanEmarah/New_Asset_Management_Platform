@@ -95,9 +95,71 @@ Each row below names its layer. **E2E** rows are the ones the QA session writes;
 - Server errors shown as written; disabled buttons have a reason.
 - No browser console errors during the flow (the suite logs them in each test's output).
 
-## Open questions for the Lead
+## Answered questions (milestone 02)
 
-1. **Invitation e-mail in tests (I2, I6):** will the AppHost add a local mail catcher (e.g. Mailpit, free) so tests can read the link, or a dev-only endpoint that returns it?
-2. **Client realm seed data:** will `inventra` (client realm) be imported with test users, or are all client users created through invitations? E2E needs at least two clients with an Owner each.
-3. **Client web app:** which port and route does it use, and will Keycloak's `inventra` realm allow redirects to it?
-4. **Row-level security role:** which database role do services connect as? L2 must run as that role, not `postgres`.
+1. Invitation e-mail: no mail catcher; links are shown once in the apps, and the tests read them there.
+2. Client realm: no seeded client users; tests register through invitations (realm `inventra`, registration on).
+3. Client web app: port 5174, `/join#<token>`, allowed by the `web-app` client.
+4. Row-level security: locally each connection switches to `inventra_app`; L2 belongs in Backend's API tests.
+
+---
+
+# Test plan: milestone 03 (configurable assets)
+
+**Scope:** Catalog (asset types and the template library), Assets (the register, hierarchy, site scope, plan limit) and Documents (files on Blob storage, Azurite locally), and how they work with Access (site scope, support passes, client audit) and Tenancy (limits). See `docs/assets.md` on `claude/backend-assets`.
+
+**Status:** planned. Automated once `claude/backend-assets` and `claude/web-assets` are merged into an integration branch. The stack gains Catalog, Assets, Documents and Azurite. Tests start from a client whose Owner has joined (`AccessTest.JoinedClientAsync`), with two sites added by API.
+
+## A. The asset journey (one end-to-end test, the Lead's main flow)
+
+| Step | What a person does | What the test checks |
+|---|---|---|
+| A1 | Owner opens Settings → Asset types → "From template" and picks **HVAC unit** | The type appears with the template's fields and statuses; its tag prefix is shown; the client audit has "created type". |
+| A2 | Owner adds an asset at **site A** with the type's fields (text, number with unit, date, choice) | Tag is `PREFIX-000001`; values show as entered, with units; a required field left empty shows its field error first. A type used within seconds of being created may answer 409 "try again in a few seconds": the test clicks Try again like a person, for at most 20 s. |
+| A3 | Owner uploads a **photo** (PNG) on the asset and downloads it | The upload lists name, size and type; the download link returns the same bytes (SHA-256 compared); the link expires (5 minutes, checked by API only). |
+| A4 | Owner invites a **Technician limited to site B**, who joins | As the Technician: the site-A asset isn't in the list; opening its URL shows "not found"; `GET /api/assets/assets/{id}` → 404; its photo's `/link` → 404 (Documents follows Assets). |
+| A5 | Plan limit: Trial allows 500 assets, too many for a browser; the API fills it (a smaller plan, or seeded counts if Backend offers one) | At 100%: `POST` answers 409 with the plan sentence; the "New asset" button is disabled with the same reason; the Tenancy usage bar in the admin console shows red. |
+| A6 | Support opens a **read-only pass** for the client | With `X-Support-Pass`: list and view assets and the photo link → 200; create, edit, upload → 403. The client's Support access page shows the pass with its actions counted, and the client audit (`GET /api/access/audit`) lists the views and the refused writes with Support's name. |
+
+## B. Asset types (Catalog)
+
+| ID | Case | Layer |
+|---|---|---|
+| T1 | Field kinds and rules: each kind rejects a bad value with the shared validator's sentence (Catalog and Assets give the same message). | API (Backend), one E2E for the form |
+| T2 | Tag prefix 2–8 letters or digits, unique per client; a duplicate shows its field error; two clients can use the same prefix. | API, E2E |
+| T3 | Editing with a stale `version` answers 409 with its sentence, and the page says to reload (the fix wanted for roles, BUG A). | API, E2E |
+| T4 | A field's kind can't change; removing a field keeps old values readable (`otherValues`). | API |
+| T5 | Archiving a type stops new assets of that type ("New asset" says why), and existing assets keep it. | API, E2E |
+| T6 | Template library: only the Platform Owner edits templates (Support/Billing see why not); every change is in the platform audit; a client's copy doesn't change when the template does. | API, E2E (admin console) |
+
+## C. The register (Assets)
+
+| ID | Case | Layer |
+|---|---|---|
+| R1 | Tags never change, even after the prefix changes; numbering is per type. | API |
+| R2 | Hierarchy: loops refused, depth at most 20, an asset with active children can't be retired (button says why). | API, E2E |
+| R3 | List filters (type, site, status, parent, search) and sort, including `field:<key>`; columns follow the chosen type. Loading, error with Try again, and empty states. | E2E |
+| R4 | Moving between sites needs Transfer at both sites; retiring needs Retire or dispose; visible but not editable answers 403 with a reason. | API, E2E |
+| R5 | Unknown or inactive site refused with a sentence; a site added in Access becomes usable after `SiteCreated` arrives. | API, E2E |
+| R6 | Two clients side by side: types, assets and documents of one are 404 to the other, in lists and by id (same check as L1). | E2E |
+| R7 | Backfill: a client created before Assets existed (seeded) gets its sites and limits lazily; the first request may say "try again in a few seconds", and then works. | API |
+
+## D. Files (Documents)
+
+| ID | Case | Layer |
+|---|---|---|
+| D1 | Only PDF, PNG, JPEG, WebP, recognised by content (a `.png` that is really text is refused); up to 25 MB, with plain sentences. | API, E2E for one refusal |
+| D2 | A file is visible exactly when its asset is (site scope, other client, support pass). | API, E2E (A4, A6) |
+| D3 | Storage limit at 100% blocks uploads with its sentence; deleting frees space and updates the usage bar. | API |
+
+## E. Cross-cutting
+
+- Every client change shows in the client audit (`ClientActivityRecorded`), within seconds.
+- New screens: no sideways scroll at 390px (asset list, asset form, type editor), both themes, no console errors.
+- Dialog focus: typing straight after opening a dialog lands in the right field (BUG B regression check).
+
+## Needed from the other sessions
+
+1. **Azurite image:** the tag Aspire uses (I'll pull `mcr.microsoft.com/azure-storage/azurite` at that tag for CI and here).
+2. **A5:** a way to reach the asset limit without 500 creates: a test-only small plan, or a bulk-create endpoint. Otherwise the test creates 500 by API (about 30 s).
+3. **Accessible names** on the new screens: the type editor's field rows and the asset form's dynamic fields need labels (tests find them by label).
