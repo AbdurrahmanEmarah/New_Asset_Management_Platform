@@ -5,11 +5,11 @@ import { ApiError } from '../../../shared/api/http';
 import { ThemeProvider } from '../../../shared/theme/ThemeProvider';
 import { Console } from './App';
 import { timeLeft } from './pages/SupportPage';
-import { BILLING, SUPPORT, client, fakeApi, fakeSupport, started } from './test-api';
+import { BILLING, SUPPORT, client, fakeApi, fakeCatalog, fakeSupport, started } from './test-api';
 
 function renderAt(path: string, api = fakeApi(), support = fakeSupport()) {
   window.history.pushState(null, '', path);
-  render(<ThemeProvider><Console api={api} support={support} onSignOut={() => {}} /></ThemeProvider>);
+  render(<ThemeProvider><Console api={api} support={support} catalog={fakeCatalog()} onSignOut={() => {}} /></ThemeProvider>);
   return { api, support };
 }
 

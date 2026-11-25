@@ -56,7 +56,11 @@ export interface User {
   cannotChangeRolesReason: string | null;
 }
 
-export interface SeatSummary { seats: number; active: number; invited: number; deactivated: number; limit: number; state: UsageState }
+export interface SeatSummary {
+  seats: number; active: number; invited: number; deactivated: number; limit: number; state: UsageState;
+  /** The server's sentence when no seat is free, if it sends one (asked of Backend). */
+  blockedReason?: string | null;
+}
 
 export interface NewInvite { email: string; name: string; roles: AssignmentInput[] }
 
@@ -83,6 +87,8 @@ export interface Role {
   cannotEditReason: string | null;
   cannotDeleteReason: string | null;
   updatedAt: string;
+  /** Concurrency token: send it back on save; an older one answers 409 with a reload hint. */
+  version: number;
 }
 
 export interface RoleInput { name: string; description: string; permissions: string[] }
@@ -118,7 +124,23 @@ export interface InvitationPreview {
 
 export interface AcceptedInvitation { clientId: string; companyName: string; userId: string; signInAgain: boolean }
 
+export interface AuditEntry {
+  id: number;
+  at: string;
+  actorName: string;
+  actorKind: 'user' | 'support' | 'platform' | 'system';
+  action: string;
+  targetType: string | null;
+  targetId: string | null;
+  details: string;
+  supportPassId: string | null;
+}
+
+/** subjectId: the thing the entries are about, e.g. an asset id (asked of Backend for milestone 03). */
+export interface AuditQuery { subjectId?: string; supportPassId?: string; take?: number; before?: number }
+
 export interface AccessApi {
+  audit(query: AuditQuery): Promise<AuditEntry[]>;
   me(): Promise<AccessMe>;
   savePreferences(theme: ThemeMode): Promise<AccessMe>;
   listUsers(status: UserFilter, search: string): Promise<User[]>;
@@ -132,7 +154,7 @@ export interface AccessApi {
   permissions(): Promise<PermissionArea[]>;
   roles(): Promise<Role[]>;
   createRole(body: RoleInput): Promise<Role>;
-  updateRole(id: string, body: RoleInput): Promise<Role>;
+  updateRole(id: string, body: RoleInput & { version: number }): Promise<Role>;
   copyRole(id: string, name: string): Promise<Role>;
   deleteRole(id: string): Promise<void>;
   sites(): Promise<Site[]>;
@@ -151,6 +173,15 @@ export function createAccessApi(gatewayUrl: string, getToken: TokenSource): Acce
 
   return {
     me: () => request('/me'),
+    audit: (q) => {
+      const p = new URLSearchParams();
+      if (q.subjectId) p.set('subjectId', q.subjectId);
+      if (q.supportPassId) p.set('supportPassId', q.supportPassId);
+      if (q.take) p.set('take', String(q.take));
+      if (q.before) p.set('before', String(q.before));
+      const qs = p.toString();
+      return request(`/audit${qs ? `?${qs}` : ''}`);
+    },
     savePreferences: (theme) => send('PUT', '/me/preferences', { theme }),
     listUsers: (status, search) => {
       const params = new URLSearchParams();
@@ -201,4 +232,5 @@ export const PERMISSIONS = {
   manageUsers: 'users.manage',
   manageRoles: 'roles.manage',
   manageSettings: 'settings.manage',
+  viewAudit: 'audit.view',
 } as const;

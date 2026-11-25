@@ -4,11 +4,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../../shared/api/http';
 import { ThemeProvider } from '../../../shared/theme/ThemeProvider';
 import { Console } from './App';
-import { SUPPORT, client, fakeApi, fakeSupport } from './test-api';
+import { SUPPORT, client, fakeApi, fakeCatalog, fakeSupport } from './test-api';
 
 function renderConsole(api = fakeApi(), support = fakeSupport()) {
   window.history.pushState(null, '', '/');
-  render(<ThemeProvider><Console api={api} support={support} onSignOut={() => {}} /></ThemeProvider>);
+  render(<ThemeProvider><Console api={api} support={support} catalog={fakeCatalog()} onSignOut={() => {}} /></ThemeProvider>);
   return api;
 }
 

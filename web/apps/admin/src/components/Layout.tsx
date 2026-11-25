@@ -18,7 +18,7 @@ export const NAV: { heading: string; items: NavItem[] }[] = [
       { label: 'Clients', icon: <ClientsIcon />, to: '/' },
       { label: 'Plans & limits', icon: <PlansIcon />, to: '/plans' },
       { label: 'Billing', icon: <BillingIcon />, comingIn: 'Billing arrives in a later release.' },
-      { label: 'Template library', icon: <TemplatesIcon />, comingIn: 'The template library arrives with asset types.' },
+      { label: 'Template library', icon: <TemplatesIcon />, to: '/templates' },
     ],
   },
   {

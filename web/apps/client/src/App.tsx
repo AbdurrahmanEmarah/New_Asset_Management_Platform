@@ -7,13 +7,20 @@ import { useLoad } from '../../../shared/hooks';
 import { useTheme } from '../../../shared/theme/ThemeProvider';
 import { Button, Gate, Notice } from '../../../shared/ui';
 import { createAccessApi, type AcceptedInvitation, type AccessApi } from './api/access';
-import { ApiProvider } from './api/context';
+import { createAssetApis, type AssetApis } from './api/assets';
+import { ApiProvider, AssetApisProvider } from './api/context';
 import { createDemoAccessApi } from './api/demo';
+import { createDemoAssetApis } from './api/demoAssets';
 import { SettingsLayout } from './components/SettingsLayout';
 import { Shell } from './components/Shell';
 import { forgetJoinToken, JOIN_PATH, takeJoinToken } from './join';
 import { MeProvider } from './me';
+import { inSupportMode, leaveSupport } from './support';
+import { AssetDetailPage } from './pages/AssetDetailPage';
+import { AssetFormPage } from './pages/AssetFormPage';
+import { AssetTypesPage } from './pages/AssetTypesPage';
 import { JoinPage } from './pages/JoinPage';
+import { RegisterPage } from './pages/RegisterPage';
 import { RolesPage } from './pages/RolesPage';
 import { SitesPage } from './pages/SitesPage';
 import { SupportPassesPage } from './pages/SupportPassesPage';
@@ -31,7 +38,8 @@ export function App() {
   useAuth();
   if (isJoin()) return <JoinRoute />;
   return (
-    <AuthGate title={TITLE} signInHint="Sign in with the account your company gave you. Platform staff use the admin console instead.">
+    <AuthGate title={inSupportMode() ? 'Support sign-in' : TITLE}
+      signInHint={inSupportMode() ? "You're opening a client's workspace on a support pass. Sign in with your platform staff account." : 'Sign in with the account your company gave you. Platform staff use the admin console instead.'}>
       <SignedIn />
     </AuthGate>
   );
@@ -48,8 +56,10 @@ const NO_API = <Notice kind="error">The API address is not configured (VITE_API_
 function SignedIn() {
   const auth = useAuth();
   const api = useApiFromEnv();
-  if (!api) return <Gate title={TITLE}>{NO_API}</Gate>;
-  return <Workspace api={api} onSignOut={() => void auth.signOut()} />;
+  const apiUrl = import.meta.env.VITE_API_URL as string | undefined;
+  const assetApis = useMemo(() => (apiUrl ? createAssetApis(apiUrl, auth.getAccessToken) : null), [apiUrl, auth.getAccessToken]);
+  if (!api || !assetApis) return <Gate title={TITLE}>{NO_API}</Gate>;
+  return <Workspace api={api} assetApis={assetApis} onSignOut={() => { leaveSupport(); void auth.signOut(); }} />;
 }
 
 /** /join#<token>: sign in (or create an account) with the invited email, then accept. */
@@ -82,6 +92,7 @@ function JoinRoute() {
 /** `npm run dev:client:demo`: no sign-in, in-memory data. */
 export function DemoApp() {
   const [api] = useState(() => createDemoAccessApi());
+  const [assetApis] = useState(() => createDemoAssetApis());
   if (isJoin()) {
     const token = takeJoinToken();
     return (
@@ -90,10 +101,10 @@ export function DemoApp() {
       </Gate>
     );
   }
-  return <Workspace api={api} onSignOut={() => window.location.assign('/')} />;
+  return <Workspace api={api} assetApis={assetApis} onSignOut={() => window.location.assign('/')} />;
 }
 
-export function Workspace({ api, onSignOut }: { api: AccessApi; onSignOut: () => void }) {
+export function Workspace({ api, assetApis, onSignOut }: { api: AccessApi; assetApis: AssetApis; onSignOut: () => void }) {
   const { setMode } = useTheme();
   // The theme saved on the person's profile wins over this browser's, so it follows them between devices.
   const [me, reload] = useLoad(() => api.me().then((m) => {
@@ -118,6 +129,7 @@ export function Workspace({ api, onSignOut }: { api: AccessApi; onSignOut: () =>
 
   return (
     <ApiProvider api={api}>
+      <AssetApisProvider apis={assetApis}>
       <MeProvider me={me.data}>
         <BrowserRouter>
           <Shell onSignOut={onSignOut}>
@@ -127,14 +139,20 @@ export function Workspace({ api, onSignOut }: { api: AccessApi; onSignOut: () =>
                 <Route path="roles" element={<RolesPage />} />
                 <Route path="sites" element={<SitesPage />} />
                 <Route path="support" element={<SupportPassesPage />} />
+                <Route path="asset-types" element={<AssetTypesPage />} />
                 <Route index element={<Navigate to="users" replace />} />
               </Route>
-              {/* Dashboard, assets and the rest arrive in later phases; until then Settings is home. */}
-              <Route path="*" element={<Navigate to="/settings/users" replace />} />
+              <Route path="/assets" element={<RegisterPage />} />
+              <Route path="/assets/new" element={<AssetFormPage />} />
+              <Route path="/assets/:id" element={<AssetDetailPage />} />
+              <Route path="/assets/:id/edit" element={<AssetFormPage />} />
+              {/* The dashboard arrives later; until then the register is home. */}
+              <Route path="*" element={<Navigate to="/assets" replace />} />
             </Routes>
           </Shell>
         </BrowserRouter>
       </MeProvider>
+      </AssetApisProvider>
     </ApiProvider>
   );
 }

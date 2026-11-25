@@ -79,12 +79,14 @@ describe('Settings › Roles & permissions', () => {
   });
 
   it('shows a refusal from the server as written', async () => {
-    const updateRole = vi.fn().mockRejectedValue(new ApiError(409, 'Someone else changed this role while you were editing. Discard your changes to see theirs, then try again.'));
+    const updateRole = vi.fn().mockRejectedValue(new ApiError(409, 'Someone else changed this role while you were editing. Reload it and make your changes again.'));
     renderWorkspace('/settings/roles', { api: { updateRole } });
     await openRole('Requester');
     await userEvent.click(screen.getByRole('checkbox', { name: /View reports/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Save role' }));
     expect(await screen.findByText(/Someone else changed this role/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Reload' }));
+    expect(await screen.findByText('All changes saved.')).toBeInTheDocument();
   });
 
   it('duplicates a saved role, and asks to save first when there are changes', async () => {

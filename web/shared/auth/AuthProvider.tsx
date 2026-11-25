@@ -1,6 +1,6 @@
 import { User, UserManager, WebStorageStateStore } from 'oidc-client-ts';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { readAuthConfig } from './config';
+import { readAuthConfig, type AuthConfig } from './config';
 
 export const CALLBACK_PATH = '/auth/callback';
 
@@ -45,8 +45,9 @@ function createManager(authority: string, clientId: string) {
   });
 }
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const config = useMemo(() => readAuthConfig(), []);
+/** `config` overrides the VITE_OIDC_* settings, e.g. the platform realm for support mode in the client app. */
+export function AuthProvider({ children, config: given }: { children: ReactNode; config?: AuthConfig | string }) {
+  const config = useMemo(() => given ?? readAuthConfig(), [given]);
   const manager = useMemo(() => (typeof config === 'string' ? null : createManager(config.authority, config.clientId)), [config]);
   const [state, setState] = useState<AuthState>(() =>
     typeof config === 'string' ? { status: 'misconfigured', error: config } : { status: 'loading' },

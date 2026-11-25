@@ -71,3 +71,21 @@ export const PASS_STATUS: Record<SupportPassStatus, { label: string; kind: Statu
   expired: { label: 'Expired', kind: 'none' },
   ended: { label: 'Ended', kind: 'none' },
 };
+
+/** The X-Support-Pass value: "{clientId:N}.{passId:N}" (ids without dashes). Also returned when a pass starts. */
+export function passHeaderValue(pass: Pick<SupportPass, 'clientId' | 'id'>): string {
+  return `${pass.clientId.replace(/-/g, '')}.${pass.id.replace(/-/g, '')}`;
+}
+
+const clientAppUrl = () => (import.meta.env.VITE_CLIENT_APP_URL as string | undefined)?.replace(/\/$/, '');
+
+export function workspaceReason(): string | null {
+  return clientAppUrl() ? null : "The client app's address isn't configured (VITE_CLIENT_APP_URL). Start the console through the AppHost, which sets it.";
+}
+
+/** Opens the client app in a new tab on this pass. The pass travels in the #fragment, never in server logs. */
+export function openWorkspace(pass: Pick<SupportPass, 'clientId' | 'id'>, headerValue?: string): void {
+  const url = clientAppUrl();
+  if (!url) return;
+  window.open(`${url}/support#${headerValue ?? passHeaderValue(pass)}`, '_blank', 'noopener');
+}
