@@ -90,7 +90,7 @@ a:focus-visible{outline:2px solid var(--action);outline-offset:2px}
     </div>
     <div style="text-align:right">
       <div class="eyebrow">Living document · updated every step</div>
-      <div style="font-family:var(--mono);font-size:14px">Last update: 24 Nov 2026 · Step 1 (design) complete</div>
+      <div style="font-family:var(--mono);font-size:14px">Last update: 25 Nov 2026 · Patch 02 ready</div>
     </div>
   </header>
 
@@ -98,30 +98,76 @@ a:focus-visible{outline:2px solid var(--action);outline-offset:2px}
     <h2 id="where">Where we are</h2>
     <div class="status">
       <div class="card">
-        <span class="pill p-ok"><i></i>Done</span>
+        <span class="pill p-ok"><i></i>Done · patch 01 (Foundation)</span>
         <ul>
-          <li>Product name: Inventra</li>
-          <li>Repo attached and empty, ready for patch 01</li>
-          <li>Theme: Field Kit (light) and Control Room (dark), the user picks</li>
-          <li>Account model: platform admin vs client roles</li>
-          <li>All 7 key screens mocked up in light and dark (see the table below)</li>
+          <li>Design: theme and 7 screens mocked up</li>
+          <li>Tenancy service, gateway, staff sign-in</li>
+          <li>Admin console: Clients, Plans &amp; limits, Audit log</li>
         </ul>
       </div>
       <div class="card">
-        <span class="pill p-info"><i></i>Waiting on you</span>
+        <span class="pill p-info"><i></i>Ready for you · patch 02 (Access)</span>
         <ul>
-          <li>Review the mockups and say what to change</li>
-          <li>Say "go" to start Step 2 (architecture docs) and the first code patch</li>
+          <li>Access service: users, invitations, roles, permissions, site scope on each person's roles, sites, support passes, client audit log</li>
+          <li>Client data kept apart in the database (row-level security), and messaging between services</li>
+          <li>Client web app: joining by link, Users, Roles &amp; permissions, Sites, Support access</li>
+          <li>Admin console: Support access, Owner invitation links</li>
+          <li>Field app foundation (Expo), Azure setup files (deploy switched off)</li>
+          <li>Tests: 90 .NET, 89 web, 45 mobile, 13 browser end-to-end</li>
         </ul>
       </div>
       <div class="card">
-        <span class="pill p-warn"><i></i>Next</span>
+        <span class="pill p-warn"><i></i>Next · milestone 03 (proposal)</span>
         <ul>
-          <li>Step 2: architecture docs and <code>CLAUDE.md</code> in the repo</li>
-          <li>Step 3.1: foundation patch (skeleton, CI, tenancy, access, web shell)</li>
+          <li>Asset types and fields (the type builder), templates</li>
+          <li>Asset register and asset detail, locations</li>
+          <li>Documents and photos</li>
+          <li>Opening a client's workspace with a support pass</li>
         </ul>
       </div>
     </div>
+  </section>
+
+  <section aria-labelledby="team">
+    <h2 id="team">The team</h2>
+    <p class="lede">Six Claude sessions work on Inventra. Each one owns its part of the repo, works on its own branches and reports to the Lead. The Lead merges their work, tests it all together and sends you one patch per milestone. You only talk to the Lead.</p>
+    <div class="tablebox">
+      <table>
+        <thead><tr><th>Session</th><th>Owns</th><th>Working on (milestone 02)</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td><b>Lead</b> (this conversation)</td><td>CLAUDE.md, docs, system map, design, combining branches, patches</td><td>Coordinating; CI fix (patch 01a)</td><td><span class="pill p-ok"><i></i>01a sent</span></td></tr>
+          <tr><td><b>Backend</b></td><td><code>src/Services</code>, <code>src/BuildingBlocks</code>, <code>src/Gateway</code>, service tests</td><td>Access service: users, invites, roles, permissions, site scope, row-level security, messaging, support access</td><td><span class="pill p-info"><i></i>Resumed (wave 1)</span></td></tr>
+          <tr><td><b>Web</b></td><td><code>web/</code></td><td>Client web app: sign-in, Users, Roles &amp; permissions; admin Support access screen</td><td><span class="pill p-ok"><i></i>Done for milestone 02 (88 tests, CI passing)</span></td></tr>
+          <tr><td><b>Mobile</b></td><td><code>mobile/</code></td><td>Expo field app foundation: theme, sign-in, offline queue, My jobs, scanning</td><td><span class="pill p-warn"><i></i>Paused until wave 2</span></td></tr>
+          <tr><td><b>DevOps</b></td><td><code>.github</code>, <code>infra</code>, <code>scripts</code></td><td>Done: container images, Azure Bicep (staging ≈ $50–75/month), least-privilege database logins, preflight script, Azure setup guide, deploy workflow (switched off). Now: web app hosting and the Entra identity setup guide</td><td><span class="pill p-warn"><i></i>First task done; paused until last</span></td></tr>
+          <tr><td><b>QA</b></td><td><code>tests/EndToEnd</code>, <code>docs/qa</code></td><td>Browser end-to-end suite for patch 01, then the Access test plan</td><td><span class="pill p-warn"><i></i>Paused until wave 2</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <figure>
+      <div class="scroll">
+        <svg viewBox="0 0 1100 200" role="img" aria-label="Five team sessions push branches to GitHub. The Lead merges them into one integration branch, runs every test, and sends you one patch. You apply it to main.">
+          <defs><marker id="t" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="ah"/></marker></defs>
+          <rect x="10" y="10" width="170" height="30" rx="6" class="bx"/><text x="95" y="30" text-anchor="middle" class="t">Backend</text>
+          <rect x="10" y="46" width="170" height="30" rx="6" class="bx"/><text x="95" y="66" text-anchor="middle" class="t">Web</text>
+          <rect x="10" y="82" width="170" height="30" rx="6" class="bx"/><text x="95" y="102" text-anchor="middle" class="t">Mobile</text>
+          <rect x="10" y="118" width="170" height="30" rx="6" class="bx"/><text x="95" y="138" text-anchor="middle" class="t">DevOps</text>
+          <rect x="10" y="154" width="170" height="30" rx="6" class="bx"/><text x="95" y="174" text-anchor="middle" class="t">QA</text>
+          <rect x="250" y="62" width="200" height="70" rx="6" class="bx-s"/><text x="350" y="90" text-anchor="middle" class="t">Own branches + CI</text><text x="350" y="110" text-anchor="middle" class="tm">claude/&lt;area&gt;-&lt;topic&gt;</text>
+          <rect x="520" y="62" width="220" height="70" rx="6" class="bx-hi"/><text x="630" y="90" text-anchor="middle" class="t">Lead combines + tests all</text><text x="630" y="110" text-anchor="middle" class="tm">claude/integration-NN</text>
+          <rect x="810" y="62" width="130" height="70" rx="6" class="bx"/><text x="875" y="90" text-anchor="middle" class="t">One patch</text><text x="875" y="110" text-anchor="middle" class="tm">to you</text>
+          <rect x="980" y="62" width="110" height="70" rx="6" class="bx"/><text x="1035" y="90" text-anchor="middle" class="t">You push</text><text x="1035" y="110" text-anchor="middle" class="tm">main</text>
+          <path d="M180 25 H215 V97 H248" class="ln" marker-end="url(#t)"/>
+          <path d="M180 169 H215 V97" class="ln"/>
+          <line x1="180" y1="61" x2="215" y2="61" class="ln"/><line x1="180" y1="97" x2="215" y2="97" class="ln"/><line x1="180" y1="133" x2="215" y2="133" class="ln"/>
+          <line x1="450" y1="97" x2="518" y2="97" class="ln" marker-end="url(#t)"/>
+          <line x1="740" y1="97" x2="808" y2="97" class="ln" marker-end="url(#t)"/>
+          <line x1="940" y1="97" x2="978" y2="97" class="ln" marker-end="url(#t)"/>
+          <text x="484" y="88" text-anchor="middle" class="tl">report</text>
+        </svg>
+      </div>
+      <figcaption>Each session stays inside its own folders, so they rarely collide. When they do, the Lead resolves it while merging.</figcaption>
+    </figure>
   </section>
 
   <section aria-labelledby="map">
@@ -368,8 +414,8 @@ a:focus-visible{outline:2px solid var(--action);outline-offset:2px}
       <table>
         <thead><tr><th>Screen</th><th>Who uses it</th><th>Permission needed</th><th>Services behind it</th><th>Build phase</th></tr></thead>
         <tbody>
-          <tr><td><a href="https://claude.ai/artifact/YX1kqgRvtMLYaUSuvnidDe#artboard-AdminConsole">Admin console · Clients</a></td><td>You (platform)</td><td>Platform Owner / Support</td><td>Tenancy, Access, Audit</td><td>1 · Foundation</td></tr>
-          <tr><td><a href="https://claude.ai/artifact/YX1kqgRvtMLYaUSuvnidDe#artboard-Roles">Roles &amp; permissions</a></td><td>Client Owner, Admin</td><td><code>roles.manage</code></td><td>Access, Audit</td><td>1 · Foundation</td></tr>
+          <tr><td><a href="https://claude.ai/artifact/YX1kqgRvtMLYaUSuvnidDe#artboard-AdminConsole">Admin console · Clients</a></td><td>You (platform)</td><td>Platform Owner / Support / Billing</td><td>Tenancy</td><td><b>Built in patch 01</b> (support access in 02)</td></tr>
+          <tr><td><a href="https://claude.ai/artifact/YX1kqgRvtMLYaUSuvnidDe#artboard-Roles">Roles &amp; permissions</a></td><td>Client Owner, Admin</td><td><code>roles.manage</code></td><td>Access, Audit</td><td>Patch 02 · Access</td></tr>
           <tr><td><a href="https://claude.ai/artifact/YX1kqgRvtMLYaUSuvnidDe#artboard-TypeBuilder">Asset-type builder</a></td><td>Client Admin</td><td><code>settings.manage</code></td><td>Asset Catalog</td><td>2 · Assets</td></tr>
           <tr><td><a href="https://claude.ai/artifact/YX1kqgRvtMLYaUSuvnidDe#artboard-Register">Asset register</a></td><td>Everyone with access</td><td><code>assets.read</code></td><td>Assets, Asset Catalog, Search</td><td>2 · Assets</td></tr>
           <tr><td><a href="https://claude.ai/artifact/YX1kqgRvtMLYaUSuvnidDe#artboard-AssetDetail">Asset detail</a></td><td>Everyone with access</td><td><code>assets.read</code></td><td>Assets, Work Orders, Documents, Audit</td><td>2 · Assets</td></tr>
@@ -398,6 +444,8 @@ a:focus-visible{outline:2px solid var(--action);outline-offset:2px}
           <li><b>Azure cost:</b> twelve services, each with its own database, cost more than one app. We'll group small services onto shared hosting in staging to keep the monthly bill low.</li>
           <li><b>Offline sync</b> in the field app is the hardest part to get right. It gets its own test suite.</li>
           <li><b>Configurable fields</b> must stay fast to search and filter at 50,000+ assets. They get indexes and a load test.</li>
+          <li><b>Not enforced yet:</b> suspending a client is recorded, but blocking its users from signing in arrives with Access (patch 02). The same goes for usage counts, which stay at 0 until Access and Assets report them.</li>
+          <li><b>Usage limit:</b> all five team sessions share your account's 5-hour usage limit. Running all five at once used it up in about 30 minutes, so they now restart in waves (Backend and Web first).</li>
           <li><b>Your PC's disk space:</b> Docker, PostgreSQL and the services need roughly 15–20 GB free to run locally.</li>
         </ul>
       </div>
@@ -424,6 +472,13 @@ a:focus-visible{outline:2px solid var(--action);outline-offset:2px}
   <section aria-labelledby="changes">
     <h2 id="changes">Change log</h2>
     <div class="log">
+      <div><time>24 Nov 2026</time>Mobile finished the field app foundation (Expo, 45 tests): theme, sign-in, offline queue, My jobs, job checklist and readings, scanning. QA finished 10 browser tests for patch 01 and is now adding Access tests. Both are merged into <code>claude/integration-02</code>. Waiting on Backend's fix for the messaging tables under the limited Azure database login.</div>
+      <div><time>24 Nov 2026</time>Backend finished Access (89 .NET tests). The Lead combined Backend, Web and DevOps into <code>claude/integration-02</code> and ran the whole platform in a real browser: create client, Owner link, register, join, add site, invite "Technician · Tower B", suspend shows the reason. Two bugs found and being fixed: Join wasn't shown after signing in from an invitation (fixed by the Lead), and the messaging tables can't be created by the limited Azure database login (Backend fixing).</div>
+      <div><time>24 Nov 2026</time>Web finished milestone 02, matching the Access API: client app (Users, Roles &amp; permissions, Sites, Support access, joining by invitation link) and admin Support access with Owner invitation links. Entering a client's workspace with a pass is deferred to phase 2.</div>
+      <div><time>24 Nov 2026</time>All five sessions stopped at 17:25 UTC on the 5-hour usage limit, and their work is saved on branches. Restarted in waves after the 22:00 reset: Backend and Web now, then QA and Mobile, then DevOps.</div>
+      <div><time>24 Nov 2026</time>DevOps finished the Azure foundation (branch <code>claude/devops-azure-foundation</code>, CI passing): staging estimated at about $50–75/month, deploy switched off until you enable it. Decision: site limits are set on each person's role assignment, not on the role.</div>
+      <div><time>24 Nov 2026</time>CI fixed (patch 01a: <code>dotnet ef -c</code> means <code>--context</code>). Team of five sessions created: Backend, Web, Mobile, DevOps and QA, with an <code>inventra</code> cloud environment that installs .NET and PostgreSQL.</div>
+      <div><time>24 Nov 2026</time>Patch 01 (Foundation) built and tested: Tenancy service, gateway, Keycloak sign-in, admin console, CI. Access, messaging and row-level security moved to patch 02 to keep patch 01 reviewable.</div>
       <div><time>24 Nov 2026</time>Step 1 complete: asset register, asset detail, asset-type builder, work order board and field app mockups added. Screens table added to this map.</div>
       <div><time>24 Nov 2026</time>System map created. Account model and support access agreed. Admin console and roles mockups drawn.</div>
       <div><time>24 Nov 2026</time>Theme chosen: Field Kit (light) and Control Room (dark), the user picks the mode.</div>
