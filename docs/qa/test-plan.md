@@ -2,7 +2,7 @@
 
 **Scope:** the Access service and what it changes in the admin console and the new client web app: users, invitations, roles, permissions, site scope, row-level security between clients, suspension blocking sign-in, and support access passes with their audit.
 
-**Status:** automated end to end on `claude/integration-02`: I1, I2, I6 (owner link), U2, U3, S1 (scope in `/me`), X1, X2, P1, P2, P4 (as seen by the client), P7 (ended by the client). The suite and its coverage table are in [end-to-end.md](end-to-end.md). Still to automate: I3–I5, U4, U5, R1–R4, L1/L5 (two clients side by side), X3, P3, P6, and stale-version 409 on role edits.
+**Status:** automated end to end: I1, I2, I5 (resend replaces the link), I6, U2, U3, U5, S1 (scope in `/me`), L1 (two clients side by side, lists and by id), X1, X2, X3, P1, P2, P4, P7. See [end-to-end.md](end-to-end.md). Blocked by a bug: the stale-version 409 on role edits (role saves carry no version, so a stale copy overwrites). Still to automate: I3 (expiry), U4 (ownership transfer), R1–R4, L5, P3 (expiry), P6.
 
 ## Layers
 

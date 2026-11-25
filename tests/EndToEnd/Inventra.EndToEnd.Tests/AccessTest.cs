@@ -8,13 +8,53 @@ public abstract class AccessTest(PlatformStack stack) : BrowserTest(stack)
 {
     protected const string Password = "Inventra-e2e-1";
 
+    private bool _staffSignedIn;
+
+    /// <summary>The answer to an API call made from a page with its signed-in person's token.</summary>
+    protected sealed record ApiResult(int Status, JsonElement Body)
+    {
+        public string Detail => Body.ValueKind == JsonValueKind.Object && Body.TryGetProperty("detail", out var d) ? d.GetString() ?? "" : "";
+    }
+
+    /// <summary>
+    /// Calls the Access API through the gateway from the page, with the person's own token (and a support
+    /// pass header when given), exactly as the app does.
+    /// </summary>
+    protected async Task<ApiResult> ApiAsync(IPage page, string method, string path, object? body = null, (string Name, string Value)? header = null)
+    {
+        var result = await page.EvaluateAsync<JsonElement>(
+            """
+            async ([url, method, headerName, headerValue, body]) => {
+              const key = Object.keys(sessionStorage).find(k => k.startsWith('oidc.user:'));
+              const token = JSON.parse(sessionStorage.getItem(key)).access_token;
+              const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+              if (headerName) headers[headerName] = headerValue;
+              const r = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined });
+              const text = await r.text();
+              let json = null;
+              try { json = text ? JSON.parse(text) : null; } catch { json = text; }
+              return { status: r.status, body: json };
+            }
+            """,
+            new object?[] { $"{Stack.GatewayUrl}/api/access{path}", method, header?.Name, header?.Value, body });
+        return new ApiResult(result.GetProperty("status").GetInt32(), result.GetProperty("body"));
+    }
+
     /// <summary>A new client whose Owner has joined: the Platform Owner is signed in on <see cref="BrowserTest.Page"/>.</summary>
     protected async Task<(string Company, IPage Owner)> JoinedClientAsync(string prefix)
     {
         var id = Guid.NewGuid().ToString("N")[..8];
         var (company, slug) = UniqueClient(prefix);
         var ownerEmail = $"owner-{id}@example.com";
-        await SignInAsync(StaffAccount.Owner);
+        if (!_staffSignedIn)
+        {
+            await SignInAsync(StaffAccount.Owner);
+            _staffSignedIn = true;
+        }
+        else
+        {
+            await Page.GetByRole(AriaRole.Link, new() { Name = "Clients" }).ClickAsync();
+        }
         await CreateClientAsync(Page, company, slug, ownerEmail: ownerEmail);
         var owner = await NewPageAsync();
         await JoinAsync(owner, await NewOwnerLinkAsync(company), ownerEmail, "Ola", "Owner", company);
@@ -28,9 +68,17 @@ public abstract class AccessTest(PlatformStack stack) : BrowserTest(stack)
         await owner.GetByRole(AriaRole.Link, new() { Name = "Users" }).ClickAsync();
         await owner.GetByRole(AriaRole.Button, new() { Name = "Invite people" }).ClickAsync();
         var invite = owner.GetByRole(AriaRole.Dialog, new() { Name = "Invite people" });
-        await invite.GetByRole(AriaRole.Textbox, new() { Name = "Name" }).FillAsync(name);
-        await invite.GetByRole(AriaRole.Textbox, new() { Name = "Email" }).FillAsync(email);
-        await invite.GetByRole(AriaRole.Checkbox, new() { Name = role }).CheckAsync();
+        // Wait for the roles to load before typing: until Web fixes it, the Dialog moves focus back to its
+        // first field whenever the page re-renders (reported bug), and the roles arriving is that re-render.
+        var roleBox = invite.GetByRole(AriaRole.Checkbox, new() { Name = role });
+        await Expect(roleBox).ToBeVisibleAsync();
+        var nameBox = invite.GetByRole(AriaRole.Textbox, new() { Name = "Name" });
+        var emailBox = invite.GetByRole(AriaRole.Textbox, new() { Name = "Email" });
+        await nameBox.FillAsync(name);
+        await emailBox.FillAsync(email);
+        await Expect(nameBox).ToHaveValueAsync(name);
+        await Expect(emailBox).ToHaveValueAsync(email);
+        await roleBox.CheckAsync();
         if (site is not null)
         {
             await invite.GetByRole(AriaRole.Group, new() { Name = "Sites these roles apply at" }).GetByRole(AriaRole.Button, new() { Name = site }).ClickAsync();
