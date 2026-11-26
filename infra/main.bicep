@@ -183,7 +183,7 @@ module runtimeConnections 'modules/db-connection-secret.bicep' = [
 
 module serviceBus 'modules/servicebus.bicep' = {
   name: 'servicebus'
-  params: { location: location, name: '${base}-sb-${suffix}', tags: tags }
+  params: { location: location, name: '${base}-sb-${suffix}', tags: tags, services: services }
 }
 
 module storage 'modules/storage.bicep' = {
@@ -195,6 +195,7 @@ module storage 'modules/storage.bicep' = {
     privateEndpointSubnetId: network.outputs.privateEndpointSubnetId
     privateDnsZoneId: network.outputs.blobZoneId
     skuName: size.storageSku
+    corsOrigins: corsOrigins
   }
 }
 
@@ -349,6 +350,10 @@ var authEnv = concat(
   ]
 )
 
+// Service discovery: "https+http://assets" (gateway routes, service-to-service calls) resolves to the
+// internal app, which Container Apps serves at http://<app name> inside the environment.
+var serviceDiscoveryEnv = map(range(0, length(services)), i => { name: 'services__${services[i].name}__http__0', value: 'http://${appName[i]}' })
+
 module serviceApps 'modules/container-app.bicep' = [
   for (s, i) in services: if (deployApps) {
     name: 'app-${s.name}'
@@ -372,7 +377,12 @@ module serviceApps 'modules/container-app.bicep' = [
         { name: 'Database__MaxPoolSize', value: '10' }
         { name: 'AZURE_CLIENT_ID', value: serviceIdentities[i].outputs.clientId } // For DefaultAzureCredential.
         { name: 'ServiceBus__FullyQualifiedNamespace', value: serviceBus.outputs.fullyQualifiedNamespace }
-      ], s.usesBlobStorage ? [{ name: 'Storage__BlobEndpoint', value: storage.outputs.blobEndpoint }] : [])
+        { name: 'Messaging__AutoProvision', value: 'false' } // Topics and subscriptions come from Bicep.
+      ], serviceDiscoveryEnv, s.usesBlobStorage ? [
+        { name: 'Blob__ServiceUri', value: storage.outputs.blobEndpoint }
+        { name: 'Blob__Container', value: storage.outputs.containerName }
+        { name: 'Storage__BlobEndpoint', value: storage.outputs.blobEndpoint }
+      ] : [])
     }
     dependsOn: [migrateJobs]
   }
@@ -399,8 +409,7 @@ module gatewayApp 'modules/container-app.bicep' = if (deployApps) {
         { name: 'ASPNETCORE_FORWARDEDHEADERS_ENABLED', value: 'true' }
         { name: 'AZURE_CLIENT_ID', value: gatewayIdentity.outputs.clientId }
       ],
-      // Service discovery: "https+http://tenancy" in the gateway's routes resolves to the internal app.
-      map(range(0, length(services)), i => { name: 'services__${services[i].name}__http__0', value: 'http://${appName[i]}' }),
+      serviceDiscoveryEnv,
       map(range(0, length(corsOrigins)), i => { name: 'Cors__Origins__${i}', value: corsOrigins[i] })
     )
   }
