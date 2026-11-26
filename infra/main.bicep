@@ -8,6 +8,7 @@
 //               │ private-endpoints subnet: Key Vault, Blob Storage                       │
 //               └──────────────────────────────────────────────────────────────────────────┘
 //          Public but Entra-only: Container Registry (Basic), Service Bus (Standard).
+//          Web apps: Static Web Apps (Free), one per entry in services.json "webApps".
 //
 // The deploy workflow runs this template three times (see scripts/deploy/deploy.sh):
 //   1. infra  (deployJobs=false, deployApps=false): network, data stores, registry, Key Vault, environment
@@ -42,7 +43,11 @@ param platformAuthority string = ''
 @description('Issuer URL for client user tokens. Optional until the client realm exists.')
 param tenantAuthority string = ''
 
-param tokenAudience string = 'inventra-api'
+@description('Audience of platform tokens. Keycloak: "inventra-api". Entra: the platform API app registration\'s client ID.')
+param platformAudience string = 'inventra-api'
+
+@description('Audience of client user tokens. Entra External ID: the client API app registration\'s client ID.')
+param tenantAudience string = 'inventra-api'
 
 @description('Browser origins allowed to call the gateway, e.g. the admin console\'s address.')
 param corsOrigins array = []
@@ -52,6 +57,10 @@ param corsOrigins array = []
 param newSecrets object = {}
 
 param postgresAdminLogin string = 'inventra_admin'
+
+@allowed(['westeurope', 'centralus', 'eastus2', 'westus2', 'eastasia'])
+@description('Region for the Static Web Apps (only offered in a few regions; the content is served from a global CDN anyway).')
+param staticWebAppLocation string = 'westeurope'
 
 var isProd = envName == 'production'
 var envShort = isProd ? 'prd' : 'stg'
@@ -64,6 +73,7 @@ var tags = {
 
 var manifest = loadJsonContent('services.json')
 var services = manifest.services
+var webApps = manifest.webApps
 var gatewayName = manifest.gateway.name
 
 // Per-environment sizes. Staging is as cheap as Azure allows; costs are monthly estimates in USD.
@@ -197,6 +207,16 @@ module storage 'modules/storage.bicep' = {
     skuName: size.storageSku
   }
 }
+
+// ── Web apps ──────────────────────────────────────────────────────────────────────────────────────────
+
+module staticSites 'modules/static-site.bicep' = {
+  name: 'web-apps'
+  params: { location: staticWebAppLocation, namePrefix: base, tags: tags, apps: map(webApps, w => w.name) }
+}
+
+// The gateway accepts browser calls from its own web apps plus any extra origins (custom domains).
+var allCorsOrigins = union(corsOrigins, map(staticSites.outputs.sites, s => s.url))
 
 // ── Compute ───────────────────────────────────────────────────────────────────────────────────────────
 
@@ -341,11 +361,11 @@ module migrateJobs 'modules/db-job.bicep' = [
 var authEnv = concat(
   empty(platformAuthority) ? [] : [
     { name: 'Auth__Platform__Authority', value: platformAuthority }
-    { name: 'Auth__Platform__Audience', value: tokenAudience }
+    { name: 'Auth__Platform__Audience', value: platformAudience }
   ],
   empty(tenantAuthority) ? [] : [
     { name: 'Auth__Tenant__Authority', value: tenantAuthority }
-    { name: 'Auth__Tenant__Audience', value: tokenAudience }
+    { name: 'Auth__Tenant__Audience', value: tenantAudience }
   ]
 )
 
@@ -401,7 +421,7 @@ module gatewayApp 'modules/container-app.bicep' = if (deployApps) {
       ],
       // Service discovery: "https+http://tenancy" in the gateway's routes resolves to the internal app.
       map(range(0, length(services)), i => { name: 'services__${services[i].name}__http__0', value: 'http://${appName[i]}' }),
-      map(range(0, length(corsOrigins)), i => { name: 'Cors__Origins__${i}', value: corsOrigins[i] })
+      map(range(0, length(allCorsOrigins)), i => { name: 'Cors__Origins__${i}', value: allCorsOrigins[i] })
     )
   }
   dependsOn: [serviceApps]
@@ -417,4 +437,5 @@ output postgresServerName string = postgres.outputs.name
 output bootstrapJobName string = take('${base}-db-bootstrap', 32)
 output migrateJobNames array = map(services, s => take('${base}-migrate-${s.name}', 32))
 output gatewayUrl string = deployApps ? 'https://${gatewayApp!.outputs.fqdn}' : ''
+output webApps array = staticSites.outputs.sites
 output secretNamesToEnsure array = concat([secretNames.postgresAdmin], secretNames.runtimePassword, secretNames.migratorPassword)

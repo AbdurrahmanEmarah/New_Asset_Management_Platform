@@ -1,5 +1,5 @@
 {
-  "$comment": "Deployable backend services. Read by infra/main.bicep, scripts/build-images.sh and the db-tools image. Add one entry per new service; the gateway is listed separately because it has no database.",
+  "$comment": "Deployable parts. Read by infra/main.bicep, scripts/build-images.sh, scripts/web/build-site.sh and the db-tools image. Add one entry per new service or web app; the gateway is listed separately because it has no database.",
   "gateway": {
     "name": "gateway",
     "project": "src/Gateway/Inventra.Gateway/Inventra.Gateway.csproj"
@@ -10,6 +10,22 @@
       "project": "src/Services/Tenancy/Inventra.Tenancy/Inventra.Tenancy.csproj",
       "database": "tenancydb",
       "usesBlobStorage": false
+    }
+  ],
+  "webApps": [
+    {
+      "name": "admin",
+      "viteConfig": "apps/admin/vite.config.ts",
+      "outDir": "dist/admin",
+      "realm": "platform",
+      "$comment": "Admin console for platform staff."
+    },
+    {
+      "name": "client",
+      "viteConfig": "apps/client/vite.config.ts",
+      "outDir": "dist/client",
+      "realm": "tenant",
+      "$comment": "Client web app (Web session). Skipped by the deploy until its vite.config.ts exists."
     }
   ]
 }

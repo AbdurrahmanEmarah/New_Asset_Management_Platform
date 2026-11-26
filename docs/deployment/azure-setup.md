@@ -115,7 +115,7 @@ The services check tokens from Entra External ID in Azure (locally this is Keycl
 gh variable set INVENTRA_PLATFORM_AUTHORITY --repo $repo --body "<issuer URL>"
 # Optional:
 gh variable set INVENTRA_TENANT_AUTHORITY   --repo $repo --body "<client user issuer URL>"   # from patch 02
-gh variable set INVENTRA_TOKEN_AUDIENCE     --repo $repo --body "inventra-api"
+gh variable set INVENTRA_PLATFORM_AUDIENCE  --repo $repo --body "inventra-api"   # Entra: the platform API app's client ID
 gh variable set INVENTRA_CORS_ORIGINS       --repo $repo --body "https://<admin console address>"
 ```
 

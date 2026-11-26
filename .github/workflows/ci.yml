@@ -116,7 +116,7 @@ jobs:
   infra:
     name: Bicep and scripts
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     env:
       BICEP_VERSION: v0.48.1
     steps:
@@ -138,6 +138,20 @@ jobs:
           done
       - name: Shell scripts
         run: shellcheck scripts/*.sh scripts/*/*.sh infra/db/entrypoint.sh
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Static Web Apps build and routing (admin console)
+        env:
+          VITE_API_URL: https://gateway.example.invalid
+          VITE_OIDC_AUTHORITY: https://login.example.invalid/platform/v2.0
+          VITE_OIDC_CLIENT_ID: ci
+        run: |
+          (cd web && npm ci --no-audit --no-fund)
+          site=$(scripts/web/build-site.sh admin | tail -1)
+          scripts/web/test-site.sh "$site"
       - name: PowerShell scripts parse
         shell: pwsh
         run: |

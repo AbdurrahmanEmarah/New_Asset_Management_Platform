@@ -12,7 +12,8 @@ param deployApps = bool(readEnvironmentVariable('INVENTRA_DEPLOY_APPS', 'false')
 
 param platformAuthority = readEnvironmentVariable('INVENTRA_PLATFORM_AUTHORITY', '')
 param tenantAuthority = readEnvironmentVariable('INVENTRA_TENANT_AUTHORITY', '')
-param tokenAudience = readEnvironmentVariable('INVENTRA_TOKEN_AUDIENCE', 'inventra-api')
+param platformAudience = readEnvironmentVariable('INVENTRA_PLATFORM_AUDIENCE', 'inventra-api')
+param tenantAudience = readEnvironmentVariable('INVENTRA_TENANT_AUDIENCE', 'inventra-api')
 // Comma-separated, e.g. "https://admin.example.com,https://app.example.com".
 param corsOrigins = map(filter(split(readEnvironmentVariable('INVENTRA_CORS_ORIGINS', ''), ','), o => !empty(trim(o))), o => trim(o))
 
