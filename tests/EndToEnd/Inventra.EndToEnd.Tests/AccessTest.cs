@@ -17,7 +17,7 @@ public abstract class AccessTest(PlatformStack stack) : BrowserTest(stack)
     }
 
     /// <summary>
-    /// Calls the Access API through the gateway from the page, with the person's own token (and a support
+    /// Calls an API through the gateway from the page (a path like "/users" means Access; "/api/assets/..." any service), with the person's own token (and a support
     /// pass header when given), exactly as the app does.
     /// </summary>
     protected async Task<ApiResult> ApiAsync(IPage page, string method, string path, object? body = null, (string Name, string Value)? header = null)
@@ -36,7 +36,7 @@ public abstract class AccessTest(PlatformStack stack) : BrowserTest(stack)
               return { status: r.status, body: json };
             }
             """,
-            new object?[] { $"{Stack.GatewayUrl}/api/access{path}", method, header?.Name, header?.Value, body });
+            new object?[] { Stack.GatewayUrl + (path.StartsWith("/api/", StringComparison.Ordinal) ? path : "/api/access" + path), method, header?.Name, header?.Value, body });
         return new ApiResult(result.GetProperty("status").GetInt32(), result.GetProperty("body"));
     }
 
@@ -58,14 +58,14 @@ public abstract class AccessTest(PlatformStack stack) : BrowserTest(stack)
         await CreateClientAsync(Page, company, slug, ownerEmail: ownerEmail);
         var owner = await NewPageAsync();
         await JoinAsync(owner, await NewOwnerLinkAsync(company), ownerEmail, "Ola", "Owner", company);
-        await Expect(owner.GetByRole(AriaRole.Heading, new() { Name = "Users", Level = 1 })).ToBeVisibleAsync();
+        await Expect(owner.GetByRole(AriaRole.Heading, new() { Name = "Assets", Level = 1 })).ToBeVisibleAsync();
         return (company, owner);
     }
 
     /// <summary>The Owner invites someone through the Users page and returns their link.</summary>
     protected static async Task<string> InviteAsync(IPage owner, string name, string email, string role, string? site = null)
     {
-        await owner.GetByRole(AriaRole.Link, new() { Name = "Users" }).ClickAsync();
+        await GoToSettingsAsync(owner, "users", "Users");
         await owner.GetByRole(AriaRole.Button, new() { Name = "Invite people" }).ClickAsync();
         var invite = owner.GetByRole(AriaRole.Dialog, new() { Name = "Invite people" });
         // Wait for the roles to load before typing: until Web fixes it, the Dialog moves focus back to its
@@ -91,6 +91,13 @@ public abstract class AccessTest(PlatformStack stack) : BrowserTest(stack)
         await linkDialog.GetByRole(AriaRole.Button, new() { Name = "Done" }).ClickAsync();
         await Expect(owner.GetByText($"{name} is invited. Send them the link.")).ToBeVisibleAsync();
         return link;
+    }
+
+    /// <summary>Opens a Settings page by its address (the app's home is Assets; Settings has its own side menu).</summary>
+    protected static async Task GoToSettingsAsync(IPage page, string path, string heading)
+    {
+        await page.GotoAsync(new Uri(page.Url).GetLeftPart(UriPartial.Authority) + "/settings/" + path);
+        await Expect(page.GetByRole(AriaRole.Heading, new() { Name = heading, Level = 1 })).ToBeVisibleAsync();
     }
 
     protected static ILocator PersonRow(IPage owner, string name) =>
