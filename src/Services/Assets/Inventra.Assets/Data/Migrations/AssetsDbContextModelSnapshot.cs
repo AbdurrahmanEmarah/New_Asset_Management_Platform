@@ -151,10 +151,6 @@ namespace Inventra.Assets.Data.Migrations
                         .HasColumnType("character varying(80)")
                         .HasColumnName("name");
 
-                    b.Property<int>("NextNumber")
-                        .HasColumnType("integer")
-                        .HasColumnName("next_number");
-
                     b.Property<uint>("RowVersion")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
@@ -252,6 +248,30 @@ namespace Inventra.Assets.Data.Migrations
                         .HasDatabaseName("ix_sites_tenant_id");
 
                     b.ToTable("sites", (string)null);
+                });
+
+            modelBuilder.Entity("Inventra.Assets.Domain.TagCounter", b =>
+                {
+                    b.Property<Guid>("TypeId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("type_id");
+
+                    b.Property<int>("NextNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("next_number");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("TypeId")
+                        .HasName("pk_tag_counters");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_tag_counters_tenant_id");
+
+                    b.ToTable("tag_counters", (string)null);
                 });
 
             modelBuilder.Entity("Inventra.Assets.Domain.Asset", b =>

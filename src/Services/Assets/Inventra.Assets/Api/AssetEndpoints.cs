@@ -3,6 +3,7 @@ using Inventra.AssetModel;
 using Inventra.Assets.Data;
 using Inventra.Assets.Domain;
 using Inventra.BuildingBlocks.Clients;
+using Inventra.BuildingBlocks.Data;
 using Inventra.BuildingBlocks.Http;
 using Inventra.Contracts.Assets;
 using Inventra.Contracts.Catalog;
@@ -154,20 +155,27 @@ public static class AssetEndpoints
         await CheckLinksAsync(db, caller, values, request.ParentId, assetId: null, errors, ct);
         if (errors.Any) return Problems.Validation(errors.ToDictionary());
 
-        var asset = Asset.Register(caller.TenantId, type, type.TakeTag(), request.Name!, statusKey, request.SiteId, request.Location ?? "", request.ParentId, values.Values, now);
-        db.Assets.Add(asset);
-        await outbox.PublishAsync(caller.Activity(Service, "asset.created", "asset", asset.Id, $"Added {asset.Tag} {asset.Name} ({type.Name}).", now));
-        await outbox.PublishAsync(new ClientAssetsCounted(caller.TenantId, count + 1, now));
-        try
+        // The tag number, the asset, its audit entry and the count are saved in one transaction.
+        await using (var transaction = await db.Database.BeginTransactionAsync(ct))
         {
-            await outbox.SaveChangesAndFlushMessagesAsync(ct);
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            return Problems.Conflict($"Another {type.Name} was added at the same moment, so the tag number was taken. Try again.");
+            var number = await db.TakeTagNumberAsync(caller.TenantId, type.TypeId, ct);
+            var asset = Asset.Register(caller.TenantId, type, type.TagFor(number), request.Name!, statusKey, request.SiteId, request.Location ?? "", request.ParentId, values.Values, now);
+            db.Assets.Add(asset);
+            await outbox.PublishAsync(caller.Activity(Service, "asset.created", "asset", asset.Id, $"Added {asset.Tag} {asset.Name} ({type.Name}).", now));
+            await outbox.PublishAsync(new ClientAssetsCounted(caller.TenantId, count + 1, now));
+            try
+            {
+                await outbox.SaveChangesAndFlushMessagesAsync(ct);
+            }
+            catch (DbUpdateException ex) when (ex.IsUniqueViolation(AssetsDbContext.TagIndex))
+            {
+                // Only possible if a tag was made outside the counter; never answer 500 for it.
+                return Problems.Conflict($"The tag {asset.Tag} is already in use. Try again; the next number will be taken.");
+            }
+
+            return TypedResults.Created($"/assets/{asset.Id}", await ResponseAsync(asset, caller, db, ct));
         }
 
-        return TypedResults.Created($"/assets/{asset.Id}", await ResponseAsync(asset, caller, db, ct));
     }
 
     internal static async Task<IResult> Update(
