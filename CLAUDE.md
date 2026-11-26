@@ -97,7 +97,7 @@ See `docs/deployment/`. Web apps go to Static Web Apps with `VITE_*` baked in at
    - Check that it applies to a clean worktree of `origin/main` and gives exactly the branch's tree.
    - Send it with the PowerShell steps to apply it.
 4. **The owner applies, commits and pushes to main themselves.** Afterwards, fetch main again: their commit hash differs from the branch.
-5. Patches so far: `01` foundation · `01a` CI fix · `02` Access, client web app, Azure foundation · `03` configurable assets (in progress).
+5. Patches so far: `01` foundation · `01a` CI fix · `02` Access, client web app, Azure foundation · `03` configurable assets (asset types, register, documents, support workspace, Azure for the new services).
 
 ## The owner's machine
 

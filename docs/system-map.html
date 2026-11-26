@@ -90,7 +90,7 @@ a:focus-visible{outline:2px solid var(--action);outline-offset:2px}
     </div>
     <div style="text-align:right">
       <div class="eyebrow">Living document · updated every step</div>
-      <div style="font-family:var(--mono);font-size:14px">Last update: 25 Nov 2026 · Patch 02 ready</div>
+      <div style="font-family:var(--mono);font-size:14px">Last update: 26 Nov 2026 · Patch 03 ready</div>
     </div>
   </header>
 
@@ -106,23 +106,30 @@ a:focus-visible{outline:2px solid var(--action);outline-offset:2px}
         </ul>
       </div>
       <div class="card">
-        <span class="pill p-info"><i></i>Ready for you · patch 02 (Access)</span>
+        <span class="pill p-ok"><i></i>Done · patch 02 (Access)</span>
         <ul>
-          <li>Access service: users, invitations, roles, permissions, site scope on each person's roles, sites, support passes, client audit log</li>
-          <li>Client data kept apart in the database (row-level security), and messaging between services</li>
-          <li>Client web app: joining by link, Users, Roles &amp; permissions, Sites, Support access</li>
-          <li>Admin console: Support access, Owner invitation links</li>
-          <li>Field app foundation (Expo), Azure setup files (deploy switched off)</li>
-          <li>Tests: 90 .NET, 89 web, 45 mobile, 13 browser end-to-end</li>
+          <li>Access service: users, invitations, roles, permissions, site scope, sites, support passes, client audit log</li>
+          <li>Client web app: joining by link, Users, Roles &amp; permissions, Sites</li>
+          <li>Field app foundation, Azure setup files (deploy switched off)</li>
         </ul>
       </div>
       <div class="card">
-        <span class="pill p-warn"><i></i>Next · milestone 03 (proposal)</span>
+        <span class="pill p-info"><i></i>Ready for you · patch 03 (Configurable assets)</span>
         <ul>
-          <li>Asset types and fields (the type builder), templates</li>
-          <li>Asset register and asset detail, locations</li>
-          <li>Documents and photos</li>
-          <li>Opening a client's workspace with a support pass</li>
+          <li>Asset Catalog: asset types with fields as data, statuses, the platform template library</li>
+          <li>Assets: the register with type columns, filters, parent/child, sites and site scope, plan limit with a meter, tags that never collide</li>
+          <li>Documents: photos and PDFs on Blob storage, short-lived download links, storage meter</li>
+          <li>Support passes work in every service; "Open workspace" from the admin console, read-only by default, every request in the client's audit log</li>
+          <li>Field app: scan to a real asset, asset detail with documents, stays signed in</li>
+          <li>Azure: the three new services, file storage, web hosting, sign-in guide; CI checks script permissions</li>
+          <li>Tests: 138 .NET service tests, 140 web, 20 browser end-to-end</li>
+        </ul>
+      </div>
+      <div class="card">
+        <span class="pill p-warn"><i></i>Next · milestone 04 (to propose)</span>
+        <ul>
+          <li>Work orders and preventive maintenance (phase 3)</li>
+          <li>Inventory and parts; notifications</li>
         </ul>
       </div>
     </div>
@@ -133,14 +140,14 @@ a:focus-visible{outline:2px solid var(--action);outline-offset:2px}
     <p class="lede">Six Claude sessions work on Inventra. Each one owns its part of the repo, works on its own branches and reports to the Lead. The Lead merges their work, tests it all together and sends you one patch per milestone. You only talk to the Lead.</p>
     <div class="tablebox">
       <table>
-        <thead><tr><th>Session</th><th>Owns</th><th>Working on (milestone 02)</th><th>Status</th></tr></thead>
+        <thead><tr><th>Session</th><th>Owns</th><th>Working on (milestone 03)</th><th>Status</th></tr></thead>
         <tbody>
-          <tr><td><b>Lead</b> (this conversation)</td><td>CLAUDE.md, docs, system map, design, combining branches, patches</td><td>Coordinating; CI fix (patch 01a)</td><td><span class="pill p-ok"><i></i>01a sent</span></td></tr>
-          <tr><td><b>Backend</b></td><td><code>src/Services</code>, <code>src/BuildingBlocks</code>, <code>src/Gateway</code>, service tests</td><td>Access service: users, invites, roles, permissions, site scope, row-level security, messaging, support access</td><td><span class="pill p-info"><i></i>Resumed (wave 1)</span></td></tr>
-          <tr><td><b>Web</b></td><td><code>web/</code></td><td>Client web app: sign-in, Users, Roles &amp; permissions; admin Support access screen</td><td><span class="pill p-ok"><i></i>Done for milestone 02 (88 tests, CI passing)</span></td></tr>
-          <tr><td><b>Mobile</b></td><td><code>mobile/</code></td><td>Expo field app foundation: theme, sign-in, offline queue, My jobs, scanning</td><td><span class="pill p-warn"><i></i>Paused until wave 2</span></td></tr>
-          <tr><td><b>DevOps</b></td><td><code>.github</code>, <code>infra</code>, <code>scripts</code></td><td>Done: container images, Azure Bicep (staging ≈ $50–75/month), least-privilege database logins, preflight script, Azure setup guide, deploy workflow (switched off). Now: web app hosting and the Entra identity setup guide</td><td><span class="pill p-warn"><i></i>First task done; paused until last</span></td></tr>
-          <tr><td><b>QA</b></td><td><code>tests/EndToEnd</code>, <code>docs/qa</code></td><td>Browser end-to-end suite for patch 01, then the Access test plan</td><td><span class="pill p-warn"><i></i>Paused until wave 2</span></td></tr>
+          <tr><td><b>Lead</b> (this conversation)</td><td>CLAUDE.md, docs, system map, design, combining branches, patches</td><td>Combining everything on <code>claude/integration-03</code>. Browser run of the asset journey passed: template type, asset at Tower A, photo upload and download, Technician at Tower B gets "not found", read-only support pass recorded in the client's audit log</td><td><span class="pill p-ok"><i></i>Patch 03 sent</span></td></tr>
+          <tr><td><b>Backend</b></td><td><code>src/Services</code>, <code>src/BuildingBlocks</code>, <code>src/Gateway</code>, service tests</td><td>Asset Catalog, Assets and Documents services; site sync; role versions; support passes in every service. Fixed: assets added at the same moment get distinct tags. Also: an asset usage endpoint (used, limit, warn, blocked)</td><td><span class="pill p-ok"><i></i>Done for milestone 03</span></td></tr>
+          <tr><td><b>Web</b></td><td><code>web/</code></td><td>Type builder, asset register, detail, form, documents; admin template library and "Open workspace"</td><td><span class="pill p-ok"><i></i>Done for milestone 03 (140 tests)</span></td></tr>
+          <tr><td><b>Mobile</b></td><td><code>mobile/</code></td><td>Scan to real asset, asset detail with documents and photos, stays signed in</td><td><span class="pill p-ok"><i></i>Done for milestone 03</span></td></tr>
+          <tr><td><b>DevOps</b></td><td><code>.github</code>, <code>infra</code>, <code>scripts</code></td><td>Script permission hardening, Bicep for the three new services and Blob, then web hosting and the identity guide</td><td><span class="pill p-ok"><i></i>Done for milestone 03 (merged)</span></td></tr>
+          <tr><td><b>QA</b></td><td><code>tests/EndToEnd</code>, <code>docs/qa</code></td><td>Asset journey in the browser suite; fixing 8 tests that expected to land on Users after joining (the app now opens on Assets)</td><td><span class="pill p-ok"><i></i>Asset journey merged</span></td></tr>
         </tbody>
       </table>
     </div>
@@ -472,6 +479,13 @@ a:focus-visible{outline:2px solid var(--action);outline-offset:2px}
   <section aria-labelledby="changes">
     <h2 id="changes">Change log</h2>
     <div class="log">
+      <div><time>26 Nov 2026, 14:00</time>Patch 03 (configurable assets) sent. All 6 CI jobs pass, and the Lead ran the whole asset journey in a browser on a fresh Keycloak, exactly as you will: template type, asset at a site, photo upload and download, a Technician at another site sees nothing, read-only support pass with every request in the client's audit log, asset meter on the register. Delete the <code>inventra-keycloak</code> volume before running it.</div>
+      <div><time>26 Nov 2026, 13:50</time>All 6 CI jobs pass on integration-03 for the first time in this milestone: the browser suite with the asset journey, the parallel-tag test, the script permission check and the Azure templates. Left for patch 03: an asset usage endpoint (Backend) and the matching meter and "New asset" limit message (Web).</div>
+      <div><time>26 Nov 2026, 13:20</time>The sessions hit the usage limit again at about 09:00. After the reset: DevOps's work (script checks, Azure setup for the three new services and file storage, web hosting, sign-in guide) and QA's asset journey tests are merged, plus a Lead fix for the two web apps wiping each other's start-up cache. QA found that two assets of one type added at the same moment can fail (Backend is fixing it), and that "New asset" should say when the plan limit is reached (Web, next). For go-live later: which Entra tenants to use for staff and clients, and whether client self-sign-up stays closed.</div>
+      <div><time>26 Nov 2026</time>Milestone 03 combined on <code>claude/integration-03</code>: 5 of 6 CI jobs pass; the browser suite waits for a QA fix (the app now opens on Assets). The Lead's browser run of the asset journey passed, including the read-only support pass and its audit entries. Mobile finished; DevOps started the script-permission fix and Bicep for the new services. Reminder: delete the <code>inventra-keycloak</code> volume when applying patch 03, or support sign-in fails (the new <code>support-web</code> client is only imported into a fresh Keycloak).</div>
+      <div><time>25 Nov 2026</time>Milestone 03, wave 2: Backend published the Asset Catalog, Assets and Documents APIs. Web started the asset-type builder, register, detail and uploads, plus "Open workspace" with a support pass. QA started the remaining Access tests and the asset journey. Decision: Assets keeps an up-to-date copy of each client's sites and refuses unknown or inactive ones.</div>
+      <div><time>25 Nov 2026</time>Patch 02 is on main. Windows dropped the executable flag on 6 scripts (one CI job failed); the owner restores it with <code>git update-index --chmod=+x</code>, and DevOps will harden CI against it. Milestone 03 (configurable assets) approved; Backend started on Asset Catalog, Assets and Documents.</div>
+      <div><time>25 Nov 2026</time>Patch 02 sent: all 6 CI jobs pass, and the Lead ran the full flow in a browser. Backend fixed the messaging tables under the limited Azure login and stopped invitation links appearing in logs. QA added 13 browser tests for Access. Patch 02 includes the 01a CI fix.</div>
       <div><time>24 Nov 2026</time>Mobile finished the field app foundation (Expo, 45 tests): theme, sign-in, offline queue, My jobs, job checklist and readings, scanning. QA finished 10 browser tests for patch 01 and is now adding Access tests. Both are merged into <code>claude/integration-02</code>. Waiting on Backend's fix for the messaging tables under the limited Azure database login.</div>
       <div><time>24 Nov 2026</time>Backend finished Access (89 .NET tests). The Lead combined Backend, Web and DevOps into <code>claude/integration-02</code> and ran the whole platform in a real browser: create client, Owner link, register, join, add site, invite "Technician · Tower B", suspend shows the reason. Two bugs found and being fixed: Join wasn't shown after signing in from an invitation (fixed by the Lead), and the messaging tables can't be created by the limited Azure database login (Backend fixing).</div>
       <div><time>24 Nov 2026</time>Web finished milestone 02, matching the Access API: client app (Users, Roles &amp; permissions, Sites, Support access, joining by invitation link) and admin Support access with Owner invitation links. Entering a client's workspace with a pass is deferred to phase 2.</div>
