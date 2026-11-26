@@ -9,8 +9,11 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useMemo, type ReactNode } from 'react';
+import { api } from '@/api';
 import { AuthProvider, useAuth } from '@/auth/AuthProvider';
 import { OfflineProvider } from '@/offline/OfflineProvider';
+import { createSender } from '@/offline/send';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 
 export default function RootLayout() {
@@ -27,13 +30,20 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ThemeProvider>
         <AuthProvider>
-          <OfflineProvider>
+          <SignedInQueue>
             <RootStack />
-          </OfflineProvider>
+          </SignedInQueue>
         </AuthProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );
+}
+
+/** The offline queue sends with the signed-in person's APIs (sample APIs in demo mode). */
+function SignedInQueue({ children }: { children: ReactNode }) {
+  const { assets } = useAuth();
+  const send = useMemo(() => createSender({ jobs: api, assets }), [assets]);
+  return <OfflineProvider send={send}>{children}</OfflineProvider>;
 }
 
 function RootStack() {
@@ -48,6 +58,7 @@ function RootStack() {
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="job/[id]/index" />
           <Stack.Screen name="job/[id]/complete" />
+          <Stack.Screen name="asset/[id]" />
         </Stack.Protected>
         <Stack.Protected guard={!signedIn}>
           <Stack.Screen name="sign-in" />

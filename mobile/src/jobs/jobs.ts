@@ -1,10 +1,10 @@
-import type { Job, JobChange, JobState, Priority, Reading, StatusKind } from '@/api/types';
+import type { Change, Job, JobState, Priority, Reading, StatusKind } from '@/api/types';
 
 /** The job as the technician sees it: the server's copy with changes still waiting on the phone applied. */
-export function applyChanges(job: Job, changes: JobChange[]): Job {
+export function applyChanges(job: Job, changes: Change[]): Job {
   let next = job;
   for (const change of changes) {
-    if (change.jobId !== job.id) continue;
+    if (change.kind === 'asset.photo' || change.jobId !== job.id) continue;
     switch (change.kind) {
       case 'checklist.set':
         next = {
@@ -88,8 +88,10 @@ export function dueLabel(due: string, today: Date = new Date()): string {
   return `${d} ${months[m - 1]}`;
 }
 
-export function describeChange(change: JobChange): string {
+export function describeChange(change: Change): string {
   switch (change.kind) {
+    case 'asset.photo':
+      return `${change.assetTag}: photo ${change.fileName}`;
     case 'checklist.set':
       return `${change.jobId}: checklist step ${change.done ? 'ticked' : 'unticked'}`;
     case 'reading.set':

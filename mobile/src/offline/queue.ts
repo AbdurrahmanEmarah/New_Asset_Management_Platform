@@ -1,4 +1,4 @@
-import { OfflineError, type JobChange, type SendResult } from '@/api/types';
+import { OfflineError, type Change, type SendResult } from '@/api/types';
 
 /** The part of AsyncStorage the queue needs, so tests can pass a plain object. */
 export interface KeyValueStore {
@@ -8,7 +8,7 @@ export interface KeyValueStore {
 
 export type QueuedChange = {
   id: string;
-  change: JobChange;
+  change: Change;
   /** ISO time it was saved on the phone. */
   savedAt: string;
   /** Failed send attempts so far. */
@@ -19,7 +19,7 @@ export type QueuedChange = {
 /** A change the server refused; shown to the technician with the server's sentence. */
 export type Conflict = {
   id: string;
-  change: JobChange;
+  change: Change;
   message: string;
   at: string;
 };
@@ -40,7 +40,7 @@ export type FlushResult = {
   offline: boolean;
 };
 
-export type Sender = (change: JobChange) => Promise<SendResult>;
+export type Sender = (change: Change) => Promise<SendResult>;
 
 export const QUEUE_STORAGE_KEY = 'inventra.field.queue';
 
@@ -96,7 +96,7 @@ export class OfflineQueue {
   };
 
   /** Saves a change on the phone. Resolves once it is stored. */
-  async enqueue(change: JobChange): Promise<QueuedChange> {
+  async enqueue(change: Change): Promise<QueuedChange> {
     await this.load();
     const item: QueuedChange = {
       id: `${this.now().getTime().toString(36)}-${(this.counter++).toString(36)}`,
