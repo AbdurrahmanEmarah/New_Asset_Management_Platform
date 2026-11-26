@@ -54,9 +54,9 @@ public sealed class PeopleAndSupportTests(PlatformStack stack) : AccessTest(stac
         var header = (pass.GetProperty("headerName").GetString()!, pass.GetProperty("headerValue").GetString()!);
 
         // With the pass, Support can read the client's people but not change anything.
-        Assert.Equal(200, await CallAccessAsync(support, "GET", "/users", header));
-        Assert.Equal(403, await CallAccessAsync(support, "POST", "/sites", header, new { name = "Sneaky site", code = "SNK" }));
-        Assert.Equal(403, await CallAccessAsync(support, "GET", "/users", header: null));
+        Assert.Equal(200, (await ApiAsync(support, "GET", "/users", header: header)).Status);
+        Assert.Equal(403, (await ApiAsync(support, "POST", "/sites", new { name = "Sneaky site", code = "SNK", isActive = true }, header)).Status);
+        Assert.Equal(403, (await ApiAsync(support, "GET", "/users")).Status);
 
         // The client's Owner sees the pass with its reason and both recorded actions, and ends it.
         await owner.GetByRole(AriaRole.Link, new() { Name = "Support access" }).ClickAsync();
@@ -71,23 +71,6 @@ public sealed class PeopleAndSupportTests(PlatformStack stack) : AccessTest(stac
         await Expect(row).ToContainTextAsync("by Ola Owner");
 
         // Once ended, the pass opens nothing.
-        Assert.Equal(403, await CallAccessAsync(support, "GET", "/users", header));
-    }
-
-    /// <summary>Calls the Access API through the gateway from the page, with the signed-in person's token.</summary>
-    private async Task<int> CallAccessAsync(IPage page, string method, string path, (string Name, string Value)? header, object? body = null)
-    {
-        return await page.EvaluateAsync<int>(
-            """
-            async ([url, method, headerName, headerValue, body]) => {
-              const key = Object.keys(sessionStorage).find(k => k.startsWith('oidc.user:'));
-              const token = JSON.parse(sessionStorage.getItem(key)).access_token;
-              const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
-              if (headerName) headers[headerName] = headerValue;
-              const r = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined });
-              return r.status;
-            }
-            """,
-            new object?[] { $"{Stack.GatewayUrl}/api/access{path}", method, header?.Name, header?.Value, body });
+        Assert.Equal(403, (await ApiAsync(support, "GET", "/users", header: header)).Status);
     }
 }
