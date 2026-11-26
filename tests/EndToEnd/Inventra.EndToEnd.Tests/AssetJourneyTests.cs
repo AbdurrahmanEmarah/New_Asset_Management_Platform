@@ -124,9 +124,9 @@ public sealed class AssetJourneyTests(PlatformStack stack) : AccessTest(stack)
         Assert.Contains("500", blocked.Detail, StringComparison.Ordinal);
     }
 
-    // BUG D: the next tag number is read and written without a lock, so simultaneous creates of one type
-    // pick the same tag and the loser gets a 500 (duplicate key ix_assets_tenant_id_tag).
-    [Fact(Skip = "Waiting for tag numbering that is safe under concurrency (Backend, milestone 03)")]
+    // BUG D (fixed in milestone 03): simultaneous creates of one type used to pick the same tag and the
+    // loser got a 500. Tags now come from an atomic per-type counter.
+    [Fact]
     public async Task Assets_added_at_the_same_time_get_distinct_tags()
     {
         var (_, owner) = await JoinedClientAsync("Tags");
@@ -203,8 +203,8 @@ public sealed class AssetJourneyTests(PlatformStack stack) : AccessTest(stack)
 
     /// <summary>
     /// Creates assets by API one after another until the plan's limit is reached, and returns how many it
-    /// made. One at a time on purpose: parallel creates of one type collide on tag numbers (BUG D, see
-    /// <see cref="Assets_added_at_the_same_time_get_distinct_tags"/>).
+    /// made. One at a time keeps the run predictable; parallel creates are covered by
+    /// <see cref="Assets_added_at_the_same_time_get_distinct_tags"/>.
     /// </summary>
     private async Task<int> FillToLimitAsync(IPage owner, string typeId, string siteId, int limit)
     {
