@@ -12,7 +12,7 @@ public sealed class StaleRoleTests(PlatformStack stack) : AccessTest(stack)
         var roles = (await ApiAsync(owner, "GET", "/roles")).Body;
         var role = roles.EnumerateArray().First(r => r.GetProperty("name").GetString() == "Technician");
         var roleId = role.GetProperty("id").GetString();
-        var version = role.GetProperty("version");
+        var version = role.GetProperty("version").GetInt64();
         var original = role.GetProperty("permissions").EnumerateArray().Select(p => p.GetString()!).ToList();
         var all = (await ApiAsync(owner, "GET", "/permissions")).Body.EnumerateArray()
             .SelectMany(area => area.GetProperty("permissions").EnumerateArray().Select(p => p.GetProperty("key").GetString()!))

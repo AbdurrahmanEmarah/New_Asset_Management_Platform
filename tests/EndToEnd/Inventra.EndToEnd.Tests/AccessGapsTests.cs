@@ -93,7 +93,7 @@ public sealed class AccessGapsTests(PlatformStack stack) : AccessTest(stack)
         await GoToSettingsAsync(owner, "users", "Users");
         var inviteButton = owner.GetByRole(AriaRole.Button, new() { Name = "Invite people" });
         await Expect(inviteButton).ToHaveAttributeAsync("aria-disabled", "true");
-        await Expect(inviteButton).ToHaveAccessibleDescriptionAsync(new System.Text.RegularExpressions.Regex("All 10 seats on your plan are in use"));
+        await Expect(inviteButton).ToHaveAccessibleDescriptionAsync(new System.Text.RegularExpressions.Regex("Your plan allows 10 users and all 10 are in use"));
 
         // Cancelling an invitation frees its seat.
         Assert.Equal(204, (await ApiAsync(owner, "DELETE", $"/users/{lastInvited}/invitation")).Status);
