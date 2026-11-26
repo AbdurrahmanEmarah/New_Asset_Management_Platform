@@ -156,9 +156,13 @@ internal static class TenantGate
             var refused = pass.Access == SupportAccess.Read && !HttpMethods.IsGet(http.Request.Method) && !HttpMethods.IsHead(http.Request.Method);
 
             // Every request under a pass is recorded in the client's own audit log: reads, and refused attempts too.
-            db.AuditEntries.Add(caller.Audit(AccessAuditActions.SupportRequest, "support_pass", pass.Id,
-                $"{http.Request.Method} {http.Request.Path}{http.Request.QueryString}{(refused ? " (refused: read-only pass)" : "")}", now));
-            await db.SaveChangesAsync(ct);
+            // The caller lookup by another service is the exception: that service records the real request.
+            if (!http.Request.Path.StartsWithSegments(CallerEndpoints.Path))
+            {
+                db.AuditEntries.Add(caller.Audit(AccessAuditActions.SupportRequest, "support_pass", pass.Id,
+                    $"{http.Request.Method} {http.Request.Path}{http.Request.QueryString}{(refused ? " (refused: read-only pass)" : "")}", now));
+                await db.SaveChangesAsync(ct);
+            }
 
             return refused ? Problems.Forbidden("This support pass is read-only. Ask the Platform Owner for a pass with change access.") : null;
         }

@@ -29,6 +29,15 @@
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
+      ],
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Inventra uses the camera to take photos of assets.",
+          "photosPermission": false,
+          "microphonePermission": false
+        }
       ]
     ]
   }

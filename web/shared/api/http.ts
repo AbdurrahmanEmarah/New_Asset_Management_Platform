@@ -17,6 +17,14 @@ export class ApiError extends Error {
 
 export type TokenSource = () => Promise<string | null>;
 
+/** Headers sent on every request from this page, e.g. X-Support-Pass while support staff use a client's workspace. */
+const sharedHeaders = new Map<string, string>();
+
+export function setSharedHeader(name: string, value: string | null): void {
+  if (value) sharedHeaders.set(name, value);
+  else sharedHeaders.delete(name);
+}
+
 interface Problem {
   title?: string;
   detail?: string;
@@ -45,8 +53,10 @@ export function createHttp(baseUrl: string, getToken: TokenSource) {
     const token = await getToken();
     const headers = new Headers(init.headers);
     headers.set('Accept', 'application/json');
-    if (init.body !== undefined) headers.set('Content-Type', 'application/json');
+    // FormData sets its own multipart Content-Type (with the boundary).
+    if (init.body !== undefined && !(init.body instanceof FormData)) headers.set('Content-Type', 'application/json');
     if (token) headers.set('Authorization', `Bearer ${token}`);
+    sharedHeaders.forEach((value, name) => headers.set(name, value));
 
     let response: Response;
     try {

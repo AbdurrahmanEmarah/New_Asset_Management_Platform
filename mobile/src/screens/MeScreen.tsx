@@ -12,7 +12,7 @@ import { ThemeSwitch } from '@/ui/ThemeSwitch';
 
 export function MeScreen() {
   const { colors } = useTheme();
-  const { session, signOut, access } = useAuth();
+  const { session, signOut, access, staysSignedIn } = useAuth();
   const [themeNote, setThemeNote] = useState<string | null>(null);
   const saveTheme = (mode: ThemeMode) => {
     if (!access) return;
@@ -36,6 +36,11 @@ export function MeScreen() {
           {user?.email ? <Text color="muted">{user.email}</Text> : null}
           {session.status === 'signed-in' && session.me ? (
             <Text color="muted">{session.me.company.name}</Text>
+          ) : null}
+          {session.status === 'signed-in' && !session.demo && !staysSignedIn ? (
+            <Text variant="small" color="muted">
+              In a web browser you stay signed in only until this tab closes. The phone app keeps you signed in.
+            </Text>
           ) : null}
           {session.status === 'signed-in' && session.demo ? (
             <Text variant="small" color="muted">

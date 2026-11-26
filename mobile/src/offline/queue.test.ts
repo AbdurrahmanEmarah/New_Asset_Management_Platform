@@ -1,4 +1,4 @@
-import { OfflineError, type JobChange, type SendResult } from '@/api/types';
+import { OfflineError, type Change as JobChange, type SendResult } from '@/api/types';
 import { OfflineQueue, QUEUE_STORAGE_KEY, type KeyValueStore } from './queue';
 
 function memoryStore(): KeyValueStore & { data: Map<string, string> } {

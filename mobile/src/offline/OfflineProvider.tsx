@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react';
-import { api, type JobChange } from '@/api';
+import { api, type Change } from '@/api';
 import { OfflineQueue, type QueueState, type Sender } from './queue';
 
 /** How often waiting changes are retried while there are any. */
@@ -9,7 +9,7 @@ export const RETRY_MS = 15_000;
 type OfflineValue = {
   state: QueueState;
   /** Saves the change on the phone, then tries to send everything waiting. */
-  saveChange: (change: JobChange) => Promise<void>;
+  saveChange: (change: Change) => Promise<void>;
   sendNow: () => void;
   dismissConflict: (id: string) => void;
 };
@@ -17,7 +17,10 @@ type OfflineValue = {
 const OfflineContext = createContext<OfflineValue | null>(null);
 
 const defaultQueue = new OfflineQueue(AsyncStorage);
-const defaultSend: Sender = (change) => api.send(change);
+const defaultSend: Sender = async (change) => {
+  if (change.kind === 'asset.photo') throw new Error('Sign in to send this photo.');
+  return api.send(change);
+};
 
 export function OfflineProvider({
   children,

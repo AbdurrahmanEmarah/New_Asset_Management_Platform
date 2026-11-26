@@ -104,7 +104,8 @@ public static class ClientEndpoints
             $"Created on the {plan!.Name} plan in {Regions.NameOf(client.Region)}. Owner: {client.OwnerName} <{client.OwnerEmail}>.", now));
 
         await outbox.PublishAsync(new ClientCreated(
-            client.Id, client.Name, client.Slug, plan.Key, plan.MaxUsers, client.OwnerName, client.OwnerEmail, now));
+            client.Id, client.Name, client.Slug, plan.Key, plan.MaxUsers, client.OwnerName, client.OwnerEmail, now,
+            plan.MaxAssets, plan.StorageGb * 1024L));
 
         try
         {
@@ -170,7 +171,7 @@ public static class ClientEndpoints
         var now = clock.GetUtcNow();
         client.ChangePlan(target);
         db.AuditEntries.Add(PlatformAuditEntry.For(user.Id, user.Name, AuditActions.PlanChanged, client, $"{from.Name} → {target.Name}.", now));
-        await outbox.PublishAsync(new ClientPlanChanged(client.Id, target.Key, target.MaxUsers, now));
+        await outbox.PublishAsync(new ClientPlanChanged(client.Id, target.Key, target.MaxUsers, now, target.MaxAssets, target.StorageGb * 1024L));
         await outbox.SaveChangesAndFlushMessagesAsync(ct);
         return TypedResults.Ok(ClientResponse.From(client, target));
     }

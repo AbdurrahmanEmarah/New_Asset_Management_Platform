@@ -15,7 +15,7 @@ builder.AddServiceDefaults();
 builder.AddInventraAuthentication();
 builder.AddTenantDatabase<AccessDbContext>("accessdb");
 builder.AddInventraMessaging("access", "accessdb", typeof(Program).Assembly,
-    publishesNamespaceOf: typeof(ClientUsersCounted), subscribesTo: ["tenancy"]);
+    publishesNamespaceOf: typeof(ClientUsersCounted), subscribesTo: ["tenancy", "catalog", "assets", "documents"]);
 
 builder.Services.AddOpenApi();
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower)));
@@ -44,6 +44,7 @@ app.MapDefaultEndpoints();
 // Members of a client (and platform staff with a support pass).
 app.MapGroup("/").RequireClientAccess()
     .MapMeEndpoints()
+    .MapCallerEndpoints()
     .MapRoleEndpoints()
     .MapUserEndpoints()
     .MapSiteEndpoints()

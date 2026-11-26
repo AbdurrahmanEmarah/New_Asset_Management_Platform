@@ -41,7 +41,7 @@ A new subscription has to switch these services on once. It is free.
 ```powershell
 $providers = "Microsoft.App","Microsoft.ContainerRegistry","Microsoft.DBforPostgreSQL","Microsoft.KeyVault",
              "Microsoft.ManagedIdentity","Microsoft.Network","Microsoft.OperationalInsights","Microsoft.Insights",
-             "Microsoft.ServiceBus","Microsoft.Storage"
+             "Microsoft.ServiceBus","Microsoft.Storage","Microsoft.Web"
 foreach ($p in $providers) { az provider register --namespace $p --subscription $sub }
 az group create --name $rg --location $location --tags app=inventra environment=staging
 ```
@@ -106,18 +106,23 @@ gh variable set DEPLOY_ENABLED        --repo $repo --body false
 
 The branch policy means only `main` can deploy to staging.
 
-## 7. Sign-in issuer
+## 7. Sign-in and web apps
 
-The services check tokens from Entra External ID in Azure (locally this is Keycloak). Once the External ID tenant and its app registration exist, set its issuer URL:
+Create the sign-in tenants and app registrations as described in [identity.md](identity.md). Then set the IDs it gives you. None of them is secret.
 
 ```powershell
-# Example form: https://<your-tenant>.ciamlogin.com/<tenant-id>/v2.0
-gh variable set INVENTRA_PLATFORM_AUTHORITY --repo $repo --body "<issuer URL>"
-# Optional:
-gh variable set INVENTRA_TENANT_AUTHORITY   --repo $repo --body "<client user issuer URL>"   # from patch 02
-gh variable set INVENTRA_TOKEN_AUDIENCE     --repo $repo --body "inventra-api"
-gh variable set INVENTRA_CORS_ORIGINS       --repo $repo --body "https://<admin console address>"
+gh variable set INVENTRA_PLATFORM_AUTHORITY    --repo $repo --body "https://login.microsoftonline.com/<staff tenant ID>/v2.0"
+gh variable set INVENTRA_PLATFORM_AUDIENCE     --repo $repo --body "<platform API client ID>"
+gh variable set INVENTRA_TENANT_AUTHORITY      --repo $repo --body "https://<client tenant ID>.ciamlogin.com/<client tenant ID>/v2.0"
+gh variable set INVENTRA_TENANT_AUDIENCE       --repo $repo --body "<client API client ID>"
+gh variable set INVENTRA_WEB_ADMIN_CLIENT_ID   --repo $repo --body "<admin console client ID>"
+gh variable set INVENTRA_WEB_ADMIN_SCOPE       --repo $repo --body "openid profile email api://<platform API client ID>/access"
+gh variable set INVENTRA_WEB_CLIENT_CLIENT_ID  --repo $repo --body "<client web app client ID>"
+gh variable set INVENTRA_WEB_CLIENT_SCOPE      --repo $repo --body "openid profile email api://<client API client ID>/access"
+gh variable set INVENTRA_WEB_SUPPORT_CLIENT_ID --repo $repo --body "<support-web client ID>"
 ```
+
+The web apps are hosted on Azure Static Web Apps (Free, $0). After the first deployment, the workflow summary lists their addresses, for example `https://<name>.azurestaticapps.net`. Add `<address>/auth/callback` as a redirect URI on each app registration (identity.md, step 5). The gateway and Blob Storage accept requests from those addresses automatically. For a custom domain, add it with `INVENTRA_CORS_ORIGINS` (comma-separated). A web app is skipped until its client ID is set.
 
 ## 8. Check everything
 

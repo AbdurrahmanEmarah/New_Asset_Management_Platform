@@ -30,7 +30,7 @@ Inventra is a multi-tenant asset management SaaS. Each client company manages it
 |---|---|
 | Tenancy & Admin (`src/Services/Tenancy`) | Built: clients, plans, limits, platform audit. |
 | Access (`src/Services/Access`, port 5202, `accessdb`) | Built (milestone 02): users, invitations, roles and permissions, site scope on role assignments, sites, support passes, client audit, row-level security. See `docs/access.md`. |
-| Asset Catalog, Assets, Documents | Phase 2. |
+| Asset Catalog (`src/Services/Catalog`, 5203, `catalogdb`), Assets (`src/Services/Assets`, 5204, `assetsdb`), Documents (`src/Services/Documents`, 5205, `documentsdb`, Blob/Azurite) | Built (milestone 03): asset types with fields as data, the platform template library, the asset register with site scope and limits, and files. See `docs/assets.md`. |
 | Work Orders, Inventory, Notifications | Phase 3. |
 | Field app (Expo) | Phase 4. |
 | Search, Audit, Integration, Reporting | Phase 5. |
@@ -52,8 +52,12 @@ Inventra is a multi-tenant asset management SaaS. Each client company manages it
 - **Client data (row-level security):**
   - Client-scoped services use `AddTenantDatabase` and the `RowSecurityMigrations` steps, and call `ITenantContext.UseAsync` before touching data. Every table has `tenant_id` with a FORCEd policy.
   - Locally the service logs in as a superuser and switches role per connection. In Azure it runs as a login that owns no tables (`Database:RowSecurityRole=""`).
+- **Client services:** use `AddClientAccess` with `RequireClientAccess`/`RequirePermission` (caller and site scope come from Access `GET /internal/caller`, cached 15 s; support passes are honoured everywhere), `AddTenantDatabase`, `CreateWolverineStorage` migrations, and a `ServiceApi<Program>` test host. Fields-as-data rules live in `Inventra.AssetModel`.
+- **Wolverine handlers:** class names must end in `Handler`, or Wolverine silently ignores them.
 - **Events:** publish with `IDbContextOutbox.PublishAsync` and `SaveChangesAndFlushMessagesAsync`, so an event is saved in the same transaction as the change.
 - **Site scope:** lives on the person's role assignment (user + role + siteIds; empty means all sites), never on the role. The effective scope is the union of the assignments that grant a permission.
+- **Scripts:** call them as `bash scripts/x.sh`. CI fails if a tracked `*.sh` isn't 100755.
+- **Services manifest:** each service's `subscribesTo` in `infra/services.json` must match its `AddInventraMessaging` call; CI checks it.
 - **Contracts:** each service's API is snapshotted in `docs/contracts/<service>.openapi.json`, and a test fails when they drift apart. Regenerate with `INVENTRA_UPDATE_CONTRACTS=1`.
 - **New services:** add them to `infra/services.json` (read by Bicep, the image build and the database tools), `Inventra.slnx`, the AppHost and the CI pending-model-changes step.
 - **Concurrency:** entities use `Property<uint>("Version").IsRowVersion()`, which maps to PostgreSQL's `xmin`. Never add a column named `xmin`.
@@ -82,7 +86,7 @@ The Lead session is the conversation with the owner. Five team sessions each own
 
 ## Deployment
 
-See `docs/deployment/`. The deploy workflow stays switched off until the repository variable `DEPLOY_ENABLED` is `true`.
+See `docs/deployment/`. Web apps go to Static Web Apps with `VITE_*` baked in at deploy; the Entra identity setup is in `docs/deployment/identity.md`. The deploy workflow stays switched off until the repository variable `DEPLOY_ENABLED` is `true`.
 
 ## How we work
 
@@ -93,7 +97,7 @@ See `docs/deployment/`. The deploy workflow stays switched off until the reposit
    - Check that it applies to a clean worktree of `origin/main` and gives exactly the branch's tree.
    - Send it with the PowerShell steps to apply it.
 4. **The owner applies, commits and pushes to main themselves.** Afterwards, fetch main again: their commit hash differs from the branch.
-5. Patches so far: `01` foundation · `01a` CI fix · `02` Access, client web app, Azure foundation (in progress).
+5. Patches so far: `01` foundation · `01a` CI fix · `02` Access, client web app, Azure foundation · `03` configurable assets (asset types, register, documents, support workspace, Azure for the new services).
 
 ## The owner's machine
 
@@ -107,6 +111,9 @@ See `docs/deployment/`. The deploy workflow stays switched off until the reposit
 
 - **vitest 4.1.x** crashes `npm install` on npm 10 ("Cannot read properties of null (reading 'edgesOut')") because of an optional peer. Stay on 4.0.x until npm is fixed.
 - **Keycloak image:** comes from quay.io, which Claude's cloud container can't reach. For local runs there, pull `docker.io/keycloak/keycloak:<tag>` and tag it as `quay.io/keycloak/keycloak:<tag>`.
+- **Windows patches drop the executable bit:** `git apply` on Windows (core.fileMode=false) turns 100755 into 100644. A patch that adds or changes a `*.sh` comes with a `git update-index --chmod=+x` step for the owner.
+- **One npm install per folder:** both web apps share `web/`, so only admin-web runs `npm install` in the AppHost; client-web waits for it.
+- **Vite cache per app:** each app's `vite.config.ts` sets its own `cacheDir`. With one shared `.vite/deps`, the two dev servers wiped each other's cache and one app stayed blank.
 - **Docker Hub rate limits:** a docker.io pull can hit 429 and still exit 0, leaving the image missing. Check `docker images` after pulling in the cloud container.
 - **`dotnet ef -c` means `--context`**, not configuration. Write `--configuration Release` (this broke the first CI run).
 - **Bicep:** a parameter named `environment` shadows `environment()`, so use `az.environment()`. Azure PostgreSQL's admin has CREATEROLE but isn't a superuser.

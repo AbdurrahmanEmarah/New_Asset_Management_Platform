@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { errorText } from '../../../../shared/errors';
 import { useDebounced, useLoad } from '../../../../shared/hooks';
@@ -50,6 +50,19 @@ export function UsersPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
+  // Someone may accept an invitation while this page is open: refresh when the window regains
+  // focus, and every 10 s while invited people are listed.
+  const showsInvited = (users.data ?? []).some((u) => u.status === 'invited');
+  useEffect(() => {
+    const onFocus = () => { reload(); reloadSummary(); };
+    window.addEventListener('focus', onFocus);
+    const timer = showsInvited ? window.setInterval(onFocus, 10_000) : undefined;
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      if (timer) window.clearInterval(timer);
+    };
+  }, [showsInvited, reload, reloadSummary]);
+
   const roles = options.data?.[0] ?? [];
   const sites = options.data?.[1] ?? [];
   const roleFilterName = roleId ? roles.find((r) => r.id === roleId)?.name ?? 'this role' : null;
@@ -57,7 +70,8 @@ export function UsersPage() {
   const seats = summary.data;
   const manageReason = needs(me, PERMISSIONS.manageUsers, 'manage users');
   const seatsFull = seats?.state === 'blocked';
-  const fullReason = seats ? `All ${seats.limit} seats on your plan are in use. Deactivate someone, or ask Inventra to raise your plan.` : null;
+  // Same sentence as the server's refusal (Access ClientAccount), unless the summary carries its own.
+  const fullReason = seats ? seats.blockedReason ?? `Your plan allows ${seats.limit} users and all ${seats.limit} are in use (active users and open invitations). Deactivate someone or cancel an invitation, or ask your Owner about a bigger plan.` : null;
   const inviteReason = manageReason ?? (seatsFull ? fullReason : null);
   const filtering = filter !== 'all' || debounced.trim() !== '' || roleId !== null;
 

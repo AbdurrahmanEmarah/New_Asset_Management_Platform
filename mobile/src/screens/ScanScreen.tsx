@@ -2,10 +2,9 @@ import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'ex
 import { useIsFocused, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import { api, type AssetSummary, type Job } from '@/api';
-import { applyChanges, stateLabel } from '@/jobs/jobs';
+import type { AssetSummary } from '@/api/assets';
+import { useAuth } from '@/auth/AuthProvider';
 import { tagFromQr, tagProblem } from '@/jobs/tags';
-import { useOffline } from '@/offline/OfflineProvider';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, radiusLg, touchTarget } from '@/theme/tokens';
 import { Button } from '@/ui/Button';
@@ -18,22 +17,26 @@ type Lookup =
   | { status: 'loading'; tag: string }
   | { status: 'error'; tag: string; message: string }
   | { status: 'not-found'; tag: string }
-  | { status: 'found'; tag: string; asset: AssetSummary; jobs: Job[] };
+  | { status: 'found'; tag: string; asset: AssetSummary };
 
 export function ScanScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const focused = useIsFocused();
-  const { state } = useOffline();
+  const { assets } = useAuth();
   const [permission, requestPermission] = useCameraPermissions();
   const [typed, setTyped] = useState('');
   const [lookup, setLookup] = useState<Lookup>({ status: 'idle' });
   const [unreadable, setUnreadable] = useState<string | null>(null);
 
   const find = (tag: string) => {
+    if (!assets) return;
     setLookup({ status: 'loading', tag });
-    api.findAsset(tag).then(
-      (found) => setLookup(found ? { status: 'found', tag, ...found } : { status: 'not-found', tag }),
+    assets.findByTag(tag).then(
+      (asset) => {
+        setLookup(asset ? { status: 'found', tag, asset } : { status: 'not-found', tag });
+        if (asset) router.push(`/asset/${asset.id}`);
+      },
       (error: unknown) =>
         setLookup({ status: 'error', tag, message: error instanceof Error ? error.message : String(error) }),
     );
@@ -124,28 +127,13 @@ export function ScanScreen() {
           />
         </View>
 
-        <Result
-          lookup={lookup}
-          pending={state.pending.map((p) => p.change)}
-          onRetry={find}
-          onOpen={(id) => router.push(`/job/${id}`)}
-        />
+        <Result lookup={lookup} onRetry={find} onOpen={(id) => router.push(`/asset/${id}`)} />
       </ScrollView>
     </Screen>
   );
 }
 
-function Result({
-  lookup,
-  pending,
-  onRetry,
-  onOpen,
-}: {
-  lookup: Lookup;
-  pending: Parameters<typeof applyChanges>[1];
-  onRetry: (tag: string) => void;
-  onOpen: (jobId: string) => void;
-}) {
+function Result({ lookup, onRetry, onOpen }: { lookup: Lookup; onRetry: (tag: string) => void; onOpen: (assetId: string) => void }) {
   const { colors } = useTheme();
   switch (lookup.status) {
     case 'idle':
@@ -162,46 +150,25 @@ function Result({
         </View>
       );
     case 'not-found':
+      return <Text accessibilityRole="alert">No asset with tag {lookup.tag} at your sites. Check the code under the QR tag and try again.</Text>;
+    case 'found':
       return (
-        <Text accessibilityRole="alert">
-          No asset has the tag {lookup.tag}. Check the code under the QR tag and try again.
-        </Text>
-      );
-    case 'found': {
-      const jobs = lookup.jobs.map((j) => applyChanges(j, pending)).filter((j) => j.state !== 'completed');
-      return (
-        <View style={[styles.card, { borderColor: colors.line, backgroundColor: colors.surface }]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Open ${lookup.asset.tag}: ${lookup.asset.name}`}
+          onPress={() => onOpen(lookup.asset.id)}
+          style={[styles.card, { borderColor: colors.line, backgroundColor: colors.surface }]}
+        >
           <Text variant="mono" color="action">
             {lookup.asset.tag}
           </Text>
           <Text variant="strong">{lookup.asset.name}</Text>
           <Text variant="small" color="muted">
-            {lookup.asset.location}
+            {lookup.asset.typeName} · {lookup.asset.location}
           </Text>
-          {jobs.length === 0 ? (
-            <Text color="muted">You have no open jobs on this asset.</Text>
-          ) : (
-            jobs.map((j) => (
-              <Pressable
-                key={j.id}
-                accessibilityRole="button"
-                accessibilityLabel={`Open ${j.id}: ${j.title}`}
-                onPress={() => onOpen(j.id)}
-                style={[styles.job, { borderTopColor: colors.lineSoft }]}
-              >
-                <View style={styles.grow}>
-                  <Text variant="mono" color="action">
-                    {j.id}
-                  </Text>
-                  <Text>{j.title}</Text>
-                </View>
-                <StatusPill kind={stateLabel[j.state].kind} label={stateLabel[j.state].label} />
-              </Pressable>
-            ))
-          )}
-        </View>
+          <StatusPill kind={lookup.asset.status.meaning} label={lookup.asset.status.label} />
+        </Pressable>
       );
-    }
   }
 }
 
@@ -214,6 +181,4 @@ const styles = StyleSheet.create({
   input: { minHeight: touchTarget, borderWidth: 2, borderRadius: radiusLg, paddingHorizontal: 12, fontSize: 16, fontFamily: fonts.mono },
   gap: { gap: 8 },
   card: { padding: 14, borderRadius: 10, borderWidth: 1, gap: 4 },
-  job: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 56, borderTopWidth: 1, marginTop: 6, paddingTop: 6 },
-  grow: { flex: 1 },
 });

@@ -22,6 +22,9 @@ public sealed class Role
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
 
+    /// <summary>PostgreSQL's row version (xmin). Edits send the version they started from, so one admin can't silently overwrite another.</summary>
+    public uint Version { get; private set; }
+
     public bool IsBuiltIn => BuiltInKey is not null;
     public bool IsOwner => BuiltInKey == BuiltInRoles.Owner;
 

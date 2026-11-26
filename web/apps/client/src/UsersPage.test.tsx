@@ -145,7 +145,7 @@ describe('Settings › Users', () => {
   it('says why inviting is blocked when every seat is used', async () => {
     renderWorkspace('/settings/users', { seatLimit: 5 });
     const invite = await screen.findByRole('button', { name: /Invite people/ });
-    await waitFor(() => expect(invite).toHaveAccessibleDescription(/All 5 seats on your plan are in use/));
+    await waitFor(() => expect(invite).toHaveAccessibleDescription('Your plan allows 5 users and all 5 are in use (active users and open invitations). Deactivate someone or cancel an invitation, or ask your Owner about a bigger plan.'));
   });
 
   it('says why buttons are disabled without users.manage', async () => {

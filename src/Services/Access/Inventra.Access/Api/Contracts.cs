@@ -14,7 +14,8 @@ public sealed record InviteUserRequest(string? Email, string? Name, IReadOnlyLis
 
 public sealed record SetUserRolesRequest(IReadOnlyList<RoleAssignmentRequest>? Roles);
 
-public sealed record RoleRequest(string? Name, string? Description, IReadOnlyList<string>? Permissions);
+/// <summary>Version is required when changing a role: send the version you opened (from RoleResponse). It isn't needed to create one.</summary>
+public sealed record RoleRequest(string? Name, string? Description, IReadOnlyList<string>? Permissions, uint? Version = null);
 
 public sealed record CopyRoleRequest(string? Name);
 
@@ -70,12 +71,13 @@ public sealed record RoleResponse(
     int MemberCount,
     string? CannotEditReason,
     string? CannotDeleteReason,
-    DateTimeOffset UpdatedAt)
+    DateTimeOffset UpdatedAt,
+    uint Version)
 {
     public static RoleResponse From(Role r, int members) => new(
         r.Id, r.Name, r.Description, r.Kind, r.BuiltInKey,
         r.EffectivePermissions, members,
-        r.CannotEditReason(), r.CannotDeleteReason(members), r.UpdatedAt);
+        r.CannotEditReason(), r.CannotDeleteReason(members), r.UpdatedAt, r.Version);
 }
 
 /// <summary>A person. The Cannot…Reason fields are for the person asking, so the UI can explain disabled buttons.</summary>

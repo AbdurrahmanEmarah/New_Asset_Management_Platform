@@ -6,6 +6,7 @@ import { useAuth } from '../../../shared/auth/AuthProvider';
 import { useLoad } from '../../../shared/hooks';
 import { Button, Gate, Notice } from '../../../shared/ui';
 import { ApiProvider } from './api/context';
+import { createPlatformCatalogApi, type PlatformCatalogApi } from './api/catalog';
 import { createSupportApi, type SupportApi } from './api/support';
 import { createTenancyApi, type TenancyApi } from './api/tenancy';
 import { Layout } from './components/Layout';
@@ -14,6 +15,7 @@ import { AuditPage } from './pages/AuditPage';
 import { ClientsPage } from './pages/ClientsPage';
 import { PlansPage } from './pages/PlansPage';
 import { SupportPage } from './pages/SupportPage';
+import { TemplatesPage } from './pages/TemplatesPage';
 
 export function App() {
   return (
@@ -27,7 +29,7 @@ function SignedIn() {
   const auth = useAuth();
   const apiUrl = import.meta.env.VITE_API_URL as string | undefined;
   const apis = useMemo(
-    () => (apiUrl ? { api: createTenancyApi(apiUrl, auth.getAccessToken), support: createSupportApi(apiUrl, auth.getAccessToken) } : null),
+    () => (apiUrl ? { api: createTenancyApi(apiUrl, auth.getAccessToken), support: createSupportApi(apiUrl, auth.getAccessToken), catalog: createPlatformCatalogApi(apiUrl, auth.getAccessToken) } : null),
     [apiUrl, auth.getAccessToken],
   );
 
@@ -37,7 +39,7 @@ function SignedIn() {
   return <Console {...apis} onSignOut={() => void auth.signOut()} />;
 }
 
-export function Console({ api, support, onSignOut }: { api: TenancyApi; support: SupportApi; onSignOut: () => void }) {
+export function Console({ api, support, catalog, onSignOut }: { api: TenancyApi; support: SupportApi; catalog: PlatformCatalogApi; onSignOut: () => void }) {
   const [me, reload] = useLoad(() => api.me(), [api]);
 
   if (me.status === 'error') {
@@ -57,7 +59,7 @@ export function Console({ api, support, onSignOut }: { api: TenancyApi; support:
   if (!me.data) return <Gate title="Platform admin" badge="ADMIN"><p className="muted" style={{ margin: 0 }}>Loading your profile…</p></Gate>;
 
   return (
-    <ApiProvider api={api} support={support}>
+    <ApiProvider api={api} support={support} catalog={catalog}>
       <MeProvider me={me.data}>
         <BrowserRouter>
           <Layout onSignOut={onSignOut}>
@@ -65,6 +67,7 @@ export function Console({ api, support, onSignOut }: { api: TenancyApi; support:
               <Route path="/" element={<ClientsPage />} />
               <Route path="/plans" element={<PlansPage />} />
               <Route path="/support" element={<SupportPage />} />
+              <Route path="/templates" element={<TemplatesPage />} />
               <Route path="/audit" element={<AuditPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

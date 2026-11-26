@@ -61,6 +61,24 @@ export type JobChange =
   | { kind: 'reading.set'; jobId: string; readingId: string; value: string }
   | { kind: 'job.complete'; jobId: string };
 
+/** A photo taken on the phone, to be attached to an asset (POST /api/documents/assets/{id}/documents). */
+export type AssetPhotoChange = {
+  kind: 'asset.photo';
+  assetId: string;
+  assetTag: string;
+  uri: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes?: number;
+};
+
+/** Anything the offline queue can hold. */
+export type Change = JobChange | AssetPhotoChange;
+
+export function isJobChange(change: Change): change is JobChange {
+  return change.kind !== 'asset.photo';
+}
+
 /** What the server said about one change. */
 export type SendResult =
   | { status: 'sent' }

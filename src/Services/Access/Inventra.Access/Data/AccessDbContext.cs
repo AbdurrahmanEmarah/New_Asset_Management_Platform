@@ -71,7 +71,7 @@ public sealed class AccessDbContext(DbContextOptions<AccessDbContext> options) :
             e.HasIndex(r => new { r.TenantId, r.NormalizedName }).IsUnique().HasDatabaseName(RoleNameIndex);
             e.HasIndex(r => new { r.TenantId, r.BuiltInKey }).IsUnique().HasFilter("built_in_key IS NOT NULL");
             e.HasOne<ClientAccount>().WithMany().HasForeignKey(r => r.TenantId).OnDelete(DeleteBehavior.Restrict);
-            e.Property<uint>("Version").IsRowVersion();
+            e.Property(r => r.Version).IsRowVersion();
         });
 
         model.Entity<UserRole>(e =>

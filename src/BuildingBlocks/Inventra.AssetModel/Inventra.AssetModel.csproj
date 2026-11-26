@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Inventra.AssetModel</RootNamespace>
+    <Description>The rules for configurable asset types: field definitions and value validation, shared by Catalog and Assets.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Inventra.Contracts\Inventra.Contracts.csproj" />
+  </ItemGroup>
+</Project>

@@ -6,14 +6,17 @@ import '../../../shared/theme/tokens.css';
 import '../../../shared/ui/ui.css';
 import './client.css';
 import { App, DemoApp } from './App';
+import { readSupportAuthConfig, takeSupportPass } from './support';
 
 const demo = import.meta.env.VITE_DEMO_API === 'true';
+// A support pass from the admin console switches sign-in to the platform realm for this tab.
+const supportPass = demo ? null : takeSupportPass();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider>
       {demo ? <DemoApp /> : (
-        <AuthProvider>
+        <AuthProvider config={supportPass ? readSupportAuthConfig() : undefined}>
           <App />
         </AuthProvider>
       )}

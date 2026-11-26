@@ -1,4 +1,6 @@
 import { vi } from 'vitest';
+import type { Template } from '../../../shared/catalog/types';
+import type { PlatformCatalogApi, TemplateInput } from './api/catalog';
 import type { StartedSupportPass, SupportApi, SupportPass } from './api/support';
 import type { Client, Me, Plan, TenancyApi } from './api/tenancy';
 
@@ -58,6 +60,26 @@ export function fakeSupport(overrides: Partial<SupportApi> = {}): SupportApi {
     end: vi.fn(),
     ownerInvitation: vi.fn().mockResolvedValue({ clientId: 'c1', email: 'mona@gulf-fm.example', name: 'Mona Haddad', status: 'invited', expiresAt: '2026-12-01T09:00:00Z', acceptUrl: null }),
     reissueOwnerInvitation: vi.fn().mockResolvedValue({ clientId: 'c1', email: 'mona@gulf-fm.example', name: 'Mona Haddad', status: 'invited', expiresAt: '2026-12-01T09:00:00Z', acceptUrl: 'http://localhost:5174/join#abc' }),
+    ...overrides,
+  };
+}
+
+export const TEMPLATE: Template = {
+  key: 'fire', name: 'Fire safety equipment', description: 'Extinguishers, pumps and valves.', category: 'Safety', tagPrefix: 'FS', iconKey: 'fire',
+  fields: [{ key: 'zone', label: 'Zone', kind: 'choice', required: true, order: 0, rules: { options: ['Zone A', 'Zone B'] } }],
+  statuses: [{ key: 'compliant', label: 'Compliant', meaning: 'ok', order: 0 }],
+  updatedAt: '2026-10-01T09:00:00Z',
+};
+
+export function fakeCatalog(overrides: Partial<PlatformCatalogApi> = {}): PlatformCatalogApi {
+  return {
+    templates: vi.fn().mockResolvedValue([TEMPLATE]),
+    saveTemplate: vi.fn().mockImplementation((key: string, body: TemplateInput) => Promise.resolve({
+      ...body, key, updatedAt: '2026-11-25T09:00:00Z',
+      fields: body.fields.map((f, i) => ({ ...f, key: f.key ?? f.label.toLowerCase(), order: i })),
+      statuses: body.statuses.map((s, i) => ({ ...s, key: s.key ?? s.label.toLowerCase(), order: i })),
+    })),
+    deleteTemplate: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }

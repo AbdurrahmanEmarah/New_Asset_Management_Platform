@@ -6,7 +6,7 @@
  */
 import { ApiError } from '../../../../shared/api/http';
 import type {
-  AccessApi, AccessMe, AssignmentInput, InvitationLink, NewInvite, PermissionArea, Role, RoleInput, Site, SiteInput, SupportPass, User,
+  AccessApi, AuditEntry, AccessMe, AssignmentInput, InvitationLink, NewInvite, PermissionArea, Role, RoleInput, Site, SiteInput, SupportPass, User,
 } from './access';
 
 const invalid = (errors: Record<string, string[]>) => new ApiError(400, 'Fix the highlighted fields and try again.', errors);
@@ -39,7 +39,7 @@ export const SITES: Site[] = [
   { id: 'yard', name: 'Plant yard', code: 'YRD', isActive: false },
 ];
 
-type StoredRole = Omit<Role, 'memberCount' | 'cannotEditReason' | 'cannotDeleteReason'>;
+type StoredRole = Omit<Role, 'memberCount' | 'cannotEditReason' | 'cannotDeleteReason' | 'version'> & { version?: number };
 const UPDATED = '2026-11-20T09:00:00Z';
 const builtIn = (id: string, name: string, permissions: string[], description: string): StoredRole =>
   ({ id, name, description, kind: 'built_in', builtInKey: id, permissions, updatedAt: UPDATED });
@@ -90,6 +90,12 @@ const PASS_SEEDS: SupportPass[] = [
     status: 'expired', startedAt: '2026-11-10T09:00:00Z', expiresAt: '2026-11-10T09:30:00Z', endedAt: '2026-11-10T09:30:00Z', endedByName: null, actionCount: 0 },
 ];
 
+const AUDIT_SEEDS: AuditEntry[] = [
+  { id: 3, at: '2026-11-20T09:00:00Z', actorName: 'Sara Nasser', actorKind: 'user', action: 'asset.updated', targetType: 'asset', targetId: 'a1', details: 'Status: Service due → In service', supportPassId: null },
+  { id: 2, at: '2026-11-12T10:30:00Z', actorName: 'Support Agent', actorKind: 'support', action: 'asset.viewed', targetType: 'asset', targetId: 'a1', details: 'Viewed during support pass (Ticket #4182)', supportPassId: 'p1' },
+  { id: 1, at: '2026-10-10T09:00:00Z', actorName: 'Omar Fathi', actorKind: 'user', action: 'asset.created', targetType: 'asset', targetId: 'a1', details: 'Created HVAC-000417 Chiller CH-2', supportPassId: null },
+];
+
 export interface DemoOptions {
   meId?: string;
   /** Permissions removed from the signed-in person, to try the read-only screens. */
@@ -121,7 +127,7 @@ export function createDemoAccessApi(options: DemoOptions = {}): AccessApi {
   const seatsUsed = () => users.filter((u) => u.status !== 'deactivated').length;
   const me = () => users.find((u) => u.id === meId)!;
   const isOwner = (u: StoredUser) => hasRole(u, 'owner');
-  const seatsFull = () => `All ${seatLimit} seats on your plan are in use. Deactivate someone or ask Inventra to raise your plan.`;
+  const seatsFull = () => `Your plan allows ${seatLimit} users and all ${seatLimit} are in use (active users and open invitations). Deactivate someone or cancel an invitation, or ask your Owner about a bigger plan.`;
 
   function deactivateReason(u: StoredUser): string | null {
     if (u.status === 'deactivated') return 'This person is already deactivated.';
@@ -146,7 +152,7 @@ export function createDemoAccessApi(options: DemoOptions = {}): AccessApi {
   const toRole = (r: StoredRole): Role => {
     const memberCount = users.filter((u) => u.status !== 'deactivated' && hasRole(u, r.id)).length;
     return {
-      ...clone(r), memberCount,
+      ...clone(r), version: r.version ?? 1, memberCount,
       cannotEditReason: r.kind === 'owner' ? "The Owner role always has every permission and can't be edited." : null,
       cannotDeleteReason: r.kind !== 'custom' ? "Built-in roles can't be deleted. Copy one to make your own version."
         : memberCount > 0 ? `${memberCount} ${memberCount === 1 ? 'person has' : 'people have'} this role. Give them another role first.` : null,
@@ -197,6 +203,7 @@ export function createDemoAccessApi(options: DemoOptions = {}): AccessApi {
 
   return {
     me: buildMe,
+    audit: async (q) => AUDIT_SEEDS.filter((e) => (!q.subjectId || e.targetId === q.subjectId) && (!q.supportPassId || e.supportPassId === q.supportPassId)).slice(0, q.take ?? 50),
     savePreferences: async (t) => {
       theme = t;
       return buildMe();
@@ -278,8 +285,9 @@ export function createDemoAccessApi(options: DemoOptions = {}): AccessApi {
       const r = roles.find((x) => x.id === id);
       if (!r) throw new ApiError(404, 'No role has this id.');
       if (r.kind === 'owner') throw new ApiError(409, "The Owner role always has every permission and can't be edited.");
+      if (body.version !== (r.version ?? 1)) throw new ApiError(409, `Someone else changed ${r.name} while you were editing. Reload it and make your changes again.`);
       checkRole(body, id);
-      Object.assign(r, { name: body.name.trim(), description: body.description.trim(), permissions: [...body.permissions], updatedAt: now().toISOString() });
+      Object.assign(r, { name: body.name.trim(), description: body.description.trim(), permissions: [...body.permissions], updatedAt: now().toISOString(), version: (r.version ?? 1) + 1 });
       return toRole(r);
     },
     copyRole: async (id, name) => {

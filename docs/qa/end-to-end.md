@@ -69,4 +69,9 @@ Rules for new tests:
 | The last Owner can't be deactivated (with a reason); a deactivated person is refused with a plain sentence | `PeopleAndSupportTests.Deactivating_someone_locks_them_out_and_the_last_Owner_stays` |
 | Support opens a read-only pass: reads work, writes get 403, no pass gets 403; the client sees the pass, its reason and 2 recorded actions, ends it, and the pass then opens nothing | `PeopleAndSupportTests.A_support_pass_is_read_only_recorded_for_the_client_and_ends_when_they_say` |
 
-Events between services (ClientCreated, ClientSuspended) arrive a few seconds after the change. Tests wait for them the way a person would (Try again, reload), for at most 20 seconds, never with a fixed delay.
+| Two clients side by side: lists (users, roles, sites, audit) show nothing of the other; the other's user, role and site by id answer 404 (GET, PUT, deactivate) | `AccessGapsTests.Two_clients_never_see_each_others_people_roles_sites_or_audit` |
+| Reactivating a suspended client lets its people back in | `AccessGapsTests.Reactivating_a_suspended_client_lets_its_people_back_in` |
+| Seat limit: 10/10 is "blocked", the next invitation gets 409 with its sentence, the Invite button says why, and cancelling an invitation frees a seat | `AccessGapsTests.The_seat_limit_blocks_the_eleventh_seat_with_its_sentence` |
+| A new invitation link replaces the old one (which then says why it can't be used); cancelling makes the link invalid for preview and accept | `AccessGapsTests.A_new_invitation_link_replaces_the_old_one_and_cancelling_stops_both` |
+
+Events between services (ClientCreated, ClientSuspended, ClientReactivated) arrive a few seconds after the change. Tests wait for them the way a person would (Try again, reload), for at most 20 seconds, never with a fixed delay.
