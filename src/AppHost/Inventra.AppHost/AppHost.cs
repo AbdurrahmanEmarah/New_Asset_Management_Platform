@@ -103,7 +103,9 @@ var gateway = builder.AddProject<Projects.Inventra_Gateway>("gateway")
     .WithEnvironment("Cors__Origins__2", "http://localhost:8081")
     .WithExternalHttpEndpoints();
 
-builder.AddViteApp("admin-web", "../../../web", "dev:admin")
+// Both web apps share the web/ folder, so only admin-web runs "npm install". Two installs at
+// once in the same folder can clash and leave one app unable to start.
+var adminWeb = builder.AddViteApp("admin-web", "../../../web", "dev:admin")
     .WithNpm(install: true)
     .WithEndpoint("http", e => { e.Port = adminWebPort; e.TargetPort = adminWebPort; e.IsProxied = false; })
     .WithEnvironment("VITE_API_URL", gateway.GetEndpoint("http"))
@@ -114,7 +116,7 @@ builder.AddViteApp("admin-web", "../../../web", "dev:admin")
     .WithExternalHttpEndpoints();
 
 builder.AddViteApp("client-web", "../../../web", "dev:client")
-    .WithNpm(install: true)
+    .WithNpm(install: false)
     .WithEndpoint("http", e => { e.Port = clientWebPort; e.TargetPort = clientWebPort; e.IsProxied = false; })
     .WithEnvironment("VITE_API_URL", gateway.GetEndpoint("http"))
     .WithEnvironment("VITE_OIDC_AUTHORITY", tenantIssuer)
@@ -122,6 +124,7 @@ builder.AddViteApp("client-web", "../../../web", "dev:client")
     .WithEnvironment("VITE_SUPPORT_OIDC_AUTHORITY", platformIssuer)
     .WithEnvironment("VITE_SUPPORT_OIDC_CLIENT_ID", "support-web")
     .WaitFor(gateway)
+    .WaitFor(adminWeb) // after the shared npm install has finished
     .WithExternalHttpEndpoints();
 
 builder.Build().Run();
