@@ -56,6 +56,8 @@ Inventra is a multi-tenant asset management SaaS. Each client company manages it
 - **Wolverine handlers:** class names must end in `Handler`, or Wolverine silently ignores them.
 - **Events:** publish with `IDbContextOutbox.PublishAsync` and `SaveChangesAndFlushMessagesAsync`, so an event is saved in the same transaction as the change.
 - **Site scope:** lives on the person's role assignment (user + role + siteIds; empty means all sites), never on the role. The effective scope is the union of the assignments that grant a permission.
+- **Scripts:** call them as `bash scripts/x.sh`. CI fails if a tracked `*.sh` isn't 100755.
+- **Services manifest:** each service's `subscribesTo` in `infra/services.json` must match its `AddInventraMessaging` call; CI checks it.
 - **Contracts:** each service's API is snapshotted in `docs/contracts/<service>.openapi.json`, and a test fails when they drift apart. Regenerate with `INVENTRA_UPDATE_CONTRACTS=1`.
 - **New services:** add them to `infra/services.json` (read by Bicep, the image build and the database tools), `Inventra.slnx`, the AppHost and the CI pending-model-changes step.
 - **Concurrency:** entities use `Property<uint>("Version").IsRowVersion()`, which maps to PostgreSQL's `xmin`. Never add a column named `xmin`.
@@ -84,7 +86,7 @@ The Lead session is the conversation with the owner. Five team sessions each own
 
 ## Deployment
 
-See `docs/deployment/`. The deploy workflow stays switched off until the repository variable `DEPLOY_ENABLED` is `true`.
+See `docs/deployment/`. Web apps go to Static Web Apps with `VITE_*` baked in at deploy; the Entra identity setup is in `docs/deployment/identity.md`. The deploy workflow stays switched off until the repository variable `DEPLOY_ENABLED` is `true`.
 
 ## How we work
 
@@ -111,6 +113,7 @@ See `docs/deployment/`. The deploy workflow stays switched off until the reposit
 - **Keycloak image:** comes from quay.io, which Claude's cloud container can't reach. For local runs there, pull `docker.io/keycloak/keycloak:<tag>` and tag it as `quay.io/keycloak/keycloak:<tag>`.
 - **Windows patches drop the executable bit:** `git apply` on Windows (core.fileMode=false) turns 100755 into 100644. A patch that adds or changes a `*.sh` comes with a `git update-index --chmod=+x` step for the owner.
 - **One npm install per folder:** both web apps share `web/`, so only admin-web runs `npm install` in the AppHost; client-web waits for it.
+- **Vite cache per app:** each app's `vite.config.ts` sets its own `cacheDir`. With one shared `.vite/deps`, the two dev servers wiped each other's cache and one app stayed blank.
 - **Docker Hub rate limits:** a docker.io pull can hit 429 and still exit 0, leaving the image missing. Check `docker images` after pulling in the cloud container.
 - **`dotnet ef -c` means `--context`**, not configuration. Write `--configuration Release` (this broke the first CI run).
 - **Bicep:** a parameter named `environment` shadows `environment()`, so use `az.environment()`. Azure PostgreSQL's admin has CREATEROLE but isn't a superuser.
