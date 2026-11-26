@@ -1,5 +1,5 @@
 {
-  "$comment": "Deployable backend services. Read by infra/main.bicep, scripts/build-images.sh and the db-tools image. Add one entry per new service; the gateway is listed separately because it has no database. \"subscribesTo\" must match each Program.cs AddInventraMessaging(subscribesTo: ...); CI checks it.",
+  "$comment": "Deployable services and web apps. Read by infra/main.bicep, scripts/build-images.sh, scripts/web/build-site.sh and the db-tools image. Add one entry per new service; the gateway is listed separately because it has no database. \"subscribesTo\" must match each Program.cs AddInventraMessaging(subscribesTo: ...); CI checks it.",
   "gateway": {
     "name": "gateway",
     "project": "src/Gateway/Inventra.Gateway/Inventra.Gateway.csproj"
@@ -55,6 +55,20 @@
       "subscribesTo": [
         "tenancy"
       ]
+    }
+  ],
+  "webApps": [
+    {
+      "name": "admin",
+      "viteConfig": "apps/admin/vite.config.ts",
+      "outDir": "dist/admin",
+      "realm": "platform"
+    },
+    {
+      "name": "client",
+      "viteConfig": "apps/client/vite.config.ts",
+      "outDir": "dist/client",
+      "realm": "tenant"
     }
   ]
 }

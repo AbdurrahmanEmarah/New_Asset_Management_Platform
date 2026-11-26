@@ -44,8 +44,16 @@ jobs:
       INVENTRA_LOCATION: ${{ vars.AZURE_LOCATION }}
       INVENTRA_PLATFORM_AUTHORITY: ${{ vars.INVENTRA_PLATFORM_AUTHORITY }}
       INVENTRA_TENANT_AUTHORITY: ${{ vars.INVENTRA_TENANT_AUTHORITY }}
-      INVENTRA_TOKEN_AUDIENCE: ${{ vars.INVENTRA_TOKEN_AUDIENCE || 'inventra-api' }}
+      INVENTRA_PLATFORM_AUDIENCE: ${{ vars.INVENTRA_PLATFORM_AUDIENCE || 'inventra-api' }}
+      INVENTRA_TENANT_AUDIENCE: ${{ vars.INVENTRA_TENANT_AUDIENCE || 'inventra-api' }}
       INVENTRA_CORS_ORIGINS: ${{ vars.INVENTRA_CORS_ORIGINS }}
+      # Web apps (Static Web Apps). An app is skipped until its client ID is set.
+      INVENTRA_API_URL: ${{ vars.INVENTRA_API_URL }}
+      INVENTRA_WEB_ADMIN_CLIENT_ID: ${{ vars.INVENTRA_WEB_ADMIN_CLIENT_ID }}
+      INVENTRA_WEB_ADMIN_SCOPE: ${{ vars.INVENTRA_WEB_ADMIN_SCOPE }}
+      INVENTRA_WEB_CLIENT_CLIENT_ID: ${{ vars.INVENTRA_WEB_CLIENT_CLIENT_ID }}
+      INVENTRA_WEB_CLIENT_SCOPE: ${{ vars.INVENTRA_WEB_CLIENT_SCOPE }}
+      INVENTRA_WEB_SUPPORT_CLIENT_ID: ${{ vars.INVENTRA_WEB_SUPPORT_CLIENT_ID }}
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
       DOTNET_NOLOGO: '1'
     steps:
@@ -79,6 +87,12 @@ jobs:
           path: ~/.nuget/packages
           key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', 'dotnet-tools.json', '**/*.csproj') }}
           restore-keys: nuget-${{ runner.os }}-
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
 
       - name: Sign in to Azure (OpenID Connect)
         uses: azure/login@v3

@@ -18,6 +18,7 @@
 | Container Registry | Basic, no admin user, no anonymous pull | Public, Entra ID only (private endpoints need Premium) |
 | Log Analytics + Application Insights | Pay per GB, 30 days, 1 GB/day cap | — |
 | Managed identities | One per app and per job, each with only its own roles | — |
+| Static Web Apps (Free) | `admin` and `client`, built by the deploy workflow with `VITE_*` settings baked in; SPA fallback and headers from `infra/web/staticwebapp.config.json` (tested in CI with the emulator) | Public HTTPS (global CDN) |
 
 The services are listed in `infra/services.json`. Bicep, `scripts/build-images.sh`, the jobs and the CI test all read that file. `scripts/check-services-manifest.sh` (CI) fails when it differs from the code: a service project is missing, or `subscribesTo` doesn't match the service's `AddInventraMessaging` call.
 
@@ -30,6 +31,7 @@ The services are listed in `infra/services.json`. Bicep, `scripts/build-images.s
 3. **jobs**: create or update the database jobs, then run `db-bootstrap` and each `migrate-<service>` and wait for them.
 4. **apps**: update the gateway and services to the new tag. Migrations always run before the code that needs them.
 5. Smoke test: the gateway's `/alive`.
+6. **web**: build each web app whose client ID is set and upload it to its Static Web App, with a deployment token read through ARM for that run only. Sign-in setup is in [identity.md](identity.md).
 
 ## Images
 
