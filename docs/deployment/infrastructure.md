@@ -9,17 +9,18 @@
 | VNet `10.40.0.0/16` | Subnets `apps` /23, `postgres` /28, `private-endpoints` /27, each with an NSG | — |
 | Container Apps environment | Consumption workload profile, managed OpenTelemetry agent → Application Insights | In the `apps` subnet |
 | Gateway app | 0.25 vCPU / 0.5 GiB, 0–2 replicas | Public HTTPS |
-| One app per service | Same size | Internal only, reached as `http://<app name>` |
+| One app per service (tenancy, access, catalog, assets, documents) | Same size; every service gets `services__<name>__http__0` for each other service | Internal only, reached as `http://<app name>` |
 | `db-bootstrap` and `migrate-<service>` jobs | Manual trigger, image `inventra/db-tools` | In the environment |
 | PostgreSQL Flexible Server 17 | Burstable B1ms, 32 GiB, one database per service | Private access, no public endpoint |
 | Key Vault | Standard, RBAC, 7-day soft delete | Private endpoint, plus Azure trusted services |
-| Storage account (Blob) | Standard LRS, no shared keys, no public blobs | Private endpoint only |
-| Service Bus | Standard, local (SAS) auth off | Public, Entra ID only (private endpoints need Premium) |
+| Storage account (Blob), container `documents` | Standard LRS, no shared keys, no anonymous blobs; only Documents has Storage Blob Data Contributor | The service uses the private endpoint. Browsers download through short-lived user delegation SAS links over the public endpoint, which accepts only Entra tokens and those links. |
+| Service Bus | Standard, local (SAS) auth off. Topic `inventra.<service>.events` per service, and a subscription `<subscriber>` per `subscribesTo` entry, all created by Bicep (`Messaging:AutoProvision` is off) | Public, Entra ID only (private endpoints need Premium) |
 | Container Registry | Basic, no admin user, no anonymous pull | Public, Entra ID only (private endpoints need Premium) |
 | Log Analytics + Application Insights | Pay per GB, 30 days, 1 GB/day cap | — |
 | Managed identities | One per app and per job, each with only its own roles | — |
+| Static Web Apps (Free) | `admin` and `client`, built by the deploy workflow with `VITE_*` settings baked in; SPA fallback and headers from `infra/web/staticwebapp.config.json` (tested in CI with the emulator) | Public HTTPS (global CDN) |
 
-The services are listed in `infra/services.json`. Bicep, `scripts/build-images.sh`, the jobs and the CI test all read that file.
+The services are listed in `infra/services.json`. Bicep, `scripts/build-images.sh`, the jobs and the CI test all read that file. `scripts/check-services-manifest.sh` (CI) fails when it differs from the code: a service project is missing, or `subscribesTo` doesn't match the service's `AddInventraMessaging` call.
 
 ## Deployment stages
 
@@ -30,6 +31,7 @@ The services are listed in `infra/services.json`. Bicep, `scripts/build-images.s
 3. **jobs**: create or update the database jobs, then run `db-bootstrap` and each `migrate-<service>` and wait for them.
 4. **apps**: update the gateway and services to the new tag. Migrations always run before the code that needs them.
 5. Smoke test: the gateway's `/alive`.
+6. **web**: build each web app whose client ID is set and upload it to its Static Web App, with a deployment token read through ARM for that run only. Sign-in setup is in [identity.md](identity.md).
 
 ## Images
 

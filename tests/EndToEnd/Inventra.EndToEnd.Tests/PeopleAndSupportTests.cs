@@ -59,7 +59,7 @@ public sealed class PeopleAndSupportTests(PlatformStack stack) : AccessTest(stac
         Assert.Equal(403, (await ApiAsync(support, "GET", "/users")).Status);
 
         // The client's Owner sees the pass with its reason and both recorded actions, and ends it.
-        await owner.GetByRole(AriaRole.Link, new() { Name = "Support access" }).ClickAsync();
+        await GoToSettingsAsync(owner, "support", "Support access");
         var row = owner.GetByRole(AriaRole.Region, new() { Name = "Support passes" }).GetByRole(AriaRole.Row).Filter(new() { HasText = "Ticket E2E-42" });
         await Expect(row).ToContainTextAsync(StaffAccount.Support.Name);
         await Expect(row).ToContainTextAsync("Read-only");

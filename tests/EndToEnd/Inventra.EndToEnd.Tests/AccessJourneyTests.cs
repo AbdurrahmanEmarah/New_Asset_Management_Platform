@@ -29,11 +29,11 @@ public sealed class AccessJourneyTests(PlatformStack stack) : AccessTest(stack)
         // 2. The Owner opens the link, creates their account and joins.
         var owner = await NewPageAsync();
         await JoinAsync(owner, ownerLink, ownerEmail, "Ola", "Owner", company);
-        await Expect(owner.GetByRole(AriaRole.Heading, new() { Name = "Users", Level = 1 })).ToBeVisibleAsync();
+        await Expect(owner.GetByRole(AriaRole.Heading, new() { Name = "Assets", Level = 1 })).ToBeVisibleAsync();
         await Expect(owner.GetByRole(AriaRole.Button, new() { NameRegex = new Regex("^Account: Ola Owner, .*Owner") })).ToBeVisibleAsync();
 
         // 3. The Owner adds a site and invites a Technician limited to it.
-        await owner.GetByRole(AriaRole.Link, new() { Name = "Sites" }).ClickAsync();
+        await GoToSettingsAsync(owner, "sites", "Sites");
         await owner.GetByRole(AriaRole.Button, new() { Name = "New site" }).ClickAsync();
         var siteDialog = owner.GetByRole(AriaRole.Dialog);
         await siteDialog.GetByRole(AriaRole.Textbox, new() { Name = "Name" }).FillAsync(siteName);

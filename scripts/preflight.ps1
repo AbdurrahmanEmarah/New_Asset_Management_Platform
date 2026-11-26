@@ -38,7 +38,7 @@ function Run([scriptblock]$Command) {
 
 $providers = @('Microsoft.App', 'Microsoft.ContainerRegistry', 'Microsoft.DBforPostgreSQL', 'Microsoft.KeyVault',
     'Microsoft.ManagedIdentity', 'Microsoft.Network', 'Microsoft.OperationalInsights', 'Microsoft.Insights',
-    'Microsoft.ServiceBus', 'Microsoft.Storage')
+    'Microsoft.ServiceBus', 'Microsoft.Storage', 'Microsoft.Web')
 $requiredVars = @('AZURE_CLIENT_ID', 'AZURE_TENANT_ID', 'AZURE_SUBSCRIPTION_ID', 'AZURE_RESOURCE_GROUP', 'AZURE_LOCATION',
     'INVENTRA_NAME_PREFIX', 'INVENTRA_PLATFORM_AUTHORITY')
 $vars = @{}
@@ -76,18 +76,33 @@ else {
     }
 }
 
-# --- Sign-in issuer ---
-$authority = $vars['INVENTRA_PLATFORM_AUTHORITY']
-if ($authority) {
-    Section 'Sign-in'
+# --- Sign-in and web apps ---
+Section 'Sign-in and web apps'
+# The services tell the realms apart by comparing a token's issuer with these values, so each must be
+# exactly the issuer its metadata announces.
+foreach ($realm in @('PLATFORM', 'TENANT')) {
+    $authority = $vars["INVENTRA_${realm}_AUTHORITY"]
+    if (-not $authority) {
+        if ($realm -eq 'TENANT') { Info 'INVENTRA_TENANT_AUTHORITY is not set: client users cannot sign in yet, and the client app is not deployed.' }
+        continue
+    }
     $metadata = $authority.TrimEnd('/') + '/.well-known/openid-configuration'
-    try {
-        Invoke-RestMethod -Uri $metadata -TimeoutSec 15 -UseBasicParsing | Out-Null
-        Ok "Platform issuer answers: $authority"
+    $issuer = ''
+    try { $issuer = [string](Invoke-RestMethod -Uri $metadata -TimeoutSec 15 -UseBasicParsing).issuer } catch { $issuer = '' }
+    if (-not $issuer) {
+        Missing "Issuer metadata at $metadata" "Check INVENTRA_${realm}_AUTHORITY (docs/deployment/identity.md)"
     }
-    catch {
-        Missing "Platform issuer metadata at $metadata" 'Check INVENTRA_PLATFORM_AUTHORITY: it must be the issuer URL of the Entra External ID tenant'
+    elseif ($issuer.TrimEnd('/') -ne $authority.TrimEnd('/')) {
+        Missing "INVENTRA_${realm}_AUTHORITY equals the issuer in its metadata" "gh variable set INVENTRA_${realm}_AUTHORITY --repo $Repo --body `"$issuer`""
     }
+    else { Ok "INVENTRA_${realm}_AUTHORITY is the issuer: $issuer" }
+    if ($authority -match 'microsoftonline\.com|ciamlogin\.com' -and -not $vars["INVENTRA_${realm}_AUDIENCE"]) {
+        Missing "Repository variable INVENTRA_${realm}_AUDIENCE" "Set it to the client ID of the $($realm.ToLower()) API app registration (docs/deployment/identity.md)"
+    }
+}
+foreach ($name in @('INVENTRA_WEB_ADMIN_CLIENT_ID', 'INVENTRA_WEB_CLIENT_CLIENT_ID', 'INVENTRA_WEB_SUPPORT_CLIENT_ID')) {
+    if ($vars[$name]) { Ok "Variable $name = $($vars[$name])" }
+    else { Info "$name is not set: the matching web app is skipped (or support sign-in is off)." }
 }
 
 # --- Azure ---

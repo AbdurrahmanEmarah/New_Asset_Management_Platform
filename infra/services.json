@@ -1,5 +1,5 @@
 {
-  "$comment": "Deployable backend services. Read by infra/main.bicep, scripts/build-images.sh and the db-tools image. Add one entry per new service; the gateway is listed separately because it has no database.",
+  "$comment": "Deployable services and web apps. Read by infra/main.bicep, scripts/build-images.sh, scripts/web/build-site.sh and the db-tools image. Add one entry per new service; the gateway is listed separately because it has no database. \"subscribesTo\" must match each Program.cs AddInventraMessaging(subscribesTo: ...); CI checks it.",
   "gateway": {
     "name": "gateway",
     "project": "src/Gateway/Inventra.Gateway/Inventra.Gateway.csproj"
@@ -9,31 +9,66 @@
       "name": "tenancy",
       "project": "src/Services/Tenancy/Inventra.Tenancy/Inventra.Tenancy.csproj",
       "database": "tenancydb",
-      "usesBlobStorage": false
+      "usesBlobStorage": false,
+      "subscribesTo": [
+        "access",
+        "catalog",
+        "assets",
+        "documents"
+      ]
     },
     {
       "name": "access",
       "project": "src/Services/Access/Inventra.Access/Inventra.Access.csproj",
       "database": "accessdb",
-      "usesBlobStorage": false
+      "usesBlobStorage": false,
+      "subscribesTo": [
+        "tenancy",
+        "catalog",
+        "assets",
+        "documents"
+      ]
     },
     {
       "name": "catalog",
       "project": "src/Services/Catalog/Inventra.Catalog/Inventra.Catalog.csproj",
       "database": "catalogdb",
-      "usesBlobStorage": false
+      "usesBlobStorage": false,
+      "subscribesTo": []
     },
     {
       "name": "assets",
       "project": "src/Services/Assets/Inventra.Assets/Inventra.Assets.csproj",
       "database": "assetsdb",
-      "usesBlobStorage": false
+      "usesBlobStorage": false,
+      "subscribesTo": [
+        "catalog",
+        "tenancy",
+        "access"
+      ]
     },
     {
       "name": "documents",
       "project": "src/Services/Documents/Inventra.Documents/Inventra.Documents.csproj",
       "database": "documentsdb",
-      "usesBlobStorage": true
+      "usesBlobStorage": true,
+      "subscribesTo": [
+        "tenancy"
+      ]
+    }
+  ],
+  "webApps": [
+    {
+      "name": "admin",
+      "viteConfig": "apps/admin/vite.config.ts",
+      "outDir": "dist/admin",
+      "realm": "platform"
+    },
+    {
+      "name": "client",
+      "viteConfig": "apps/client/vite.config.ts",
+      "outDir": "dist/client",
+      "realm": "tenant"
     }
   ]
 }

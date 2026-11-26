@@ -108,7 +108,7 @@ jobs:
           key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', 'dotnet-tools.json', '**/*.csproj') }}
           restore-keys: nuget-${{ runner.os }}-
       - name: Build images (not pushed)
-        run: scripts/build-images.sh --tag ci
+        run: bash scripts/build-images.sh --tag ci
       - name: Gateway image starts
         run: |
           docker run -d --name gateway -p 18000:8080 \
@@ -116,12 +116,12 @@ jobs:
           for _ in $(seq 1 30); do curl -fsS http://localhost:18000/alive && exit 0; sleep 1; done
           docker logs gateway; exit 1
       - name: Least-privilege database logins
-        run: scripts/db/test-least-privilege.sh ci
+        run: bash scripts/db/test-least-privilege.sh ci
 
   infra:
     name: Bicep and scripts
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     env:
       BICEP_VERSION: v0.48.1
     steps:
@@ -141,8 +141,31 @@ jobs:
             bicep $cmd >/dev/null 2>bicep.log || { cat bicep.log; exit 1; }
             if grep -E "Warning|Error" bicep.log; then exit 1; fi
           done
+      - name: Shell scripts are executable (100755) in git
+        run: |
+          bad=$(git ls-files -s '*.sh' | awk '$1 != "100755" {print $1, $4}')
+          if [ -n "$bad" ]; then
+            echo "::error::These scripts lost their executable bit. Fix with: git update-index --chmod=+x <file>"
+            echo "$bad"; exit 1
+          fi
       - name: Shell scripts
         run: shellcheck scripts/*.sh scripts/*/*.sh infra/db/entrypoint.sh
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Static Web Apps build and routing (admin console and client app)
+        env:
+          VITE_API_URL: https://gateway.example.invalid
+          VITE_OIDC_AUTHORITY: https://login.example.invalid/platform/v2.0
+          VITE_OIDC_CLIENT_ID: ci
+        run: |
+          (cd web && npm ci --no-audit --no-fund)
+          for app in admin client; do
+            site=$(bash scripts/web/build-site.sh "$app" | tail -1)
+            bash scripts/web/test-site.sh "$site"
+          done
       - name: PowerShell scripts parse
         shell: pwsh
         run: |

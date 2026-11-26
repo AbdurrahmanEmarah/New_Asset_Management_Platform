@@ -35,7 +35,7 @@ public sealed class AccessGapsTests(PlatformStack stack) : AccessTest(stack)
         Assert.Equal(404, (await ApiAsync(ownerA, "POST", $"/users/{ownerBId}/deactivate")).Status);
 
         // And in the app: A's people list shows only A's Owner.
-        await ownerA.ReloadAsync();
+        await GoToSettingsAsync(ownerA, "users", "Users");
         var people = ownerA.GetByRole(AriaRole.Region, new() { Name = "People" });
         await Expect(people.GetByText("Ola Owner")).ToHaveCountAsync(1);
         await Expect(people.GetByText(ownerBEmail)).ToHaveCountAsync(0);
@@ -53,7 +53,7 @@ public sealed class AccessGapsTests(PlatformStack stack) : AccessTest(stack)
         await Expect(Page.GetByText($"{company} is active again.")).ToBeVisibleAsync();
 
         // ClientReactivated reaches Access by event: reload like a person would, for up to 20 seconds.
-        var users = owner.GetByRole(AriaRole.Heading, new() { Name = "Users", Level = 1 });
+        var users = owner.GetByRole(AriaRole.Heading, new() { Name = "Assets", Level = 1 });
         var deadline = DateTime.UtcNow.AddSeconds(20);
         while (true)
         {
@@ -90,7 +90,7 @@ public sealed class AccessGapsTests(PlatformStack stack) : AccessTest(stack)
         Assert.Equal("Your plan allows 10 users and all 10 are in use (active users and open invitations). Deactivate someone or cancel an invitation, or ask your Owner about a bigger plan.", refused.Detail);
 
         // The app says the same before anyone tries.
-        await owner.ReloadAsync();
+        await GoToSettingsAsync(owner, "users", "Users");
         var inviteButton = owner.GetByRole(AriaRole.Button, new() { Name = "Invite people" });
         await Expect(inviteButton).ToHaveAttributeAsync("aria-disabled", "true");
         await Expect(inviteButton).ToHaveAccessibleDescriptionAsync(new System.Text.RegularExpressions.Regex("All 10 seats on your plan are in use"));

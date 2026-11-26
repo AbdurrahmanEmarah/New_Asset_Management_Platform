@@ -69,7 +69,7 @@ public sealed class PlatformStack : IAsyncLifetime
         try
         {
             await _app.StartAsync(ct);
-            foreach (var name in new[] { "keycloak", "rabbitmq", "tenancy", "access", "gateway" })
+            foreach (var name in new[] { "keycloak", "rabbitmq", "tenancy", "access", "catalog", "assets", "documents", "gateway" })
             {
                 await _app.ResourceNotifications.WaitForResourceHealthyAsync(name, ct);
             }
@@ -103,6 +103,17 @@ public sealed class PlatformStack : IAsyncLifetime
         {
             Headless = Environment.GetEnvironmentVariable("INVENTRA_E2E_HEADED") != "1",
         });
+
+        // Warm up both apps once. Vite compiles modules on the first request, which can take longer than
+        // a test's timeouts on a cold runner; afterwards every load is quick.
+        var warm = await Browser.NewPageAsync();
+        foreach (var url in new[] { AdminUrl, ClientUrl })
+        {
+            await warm.GotoAsync(url, new() { Timeout = 180_000 });
+            await Assertions.Expect(warm.GetByRole(AriaRole.Button, new() { Name = "Sign in" }))
+                .ToBeVisibleAsync(new() { Timeout = 180_000 });
+        }
+        await warm.CloseAsync();
     }
 
     private readonly System.Collections.Concurrent.ConcurrentQueue<string> _logs = new();
