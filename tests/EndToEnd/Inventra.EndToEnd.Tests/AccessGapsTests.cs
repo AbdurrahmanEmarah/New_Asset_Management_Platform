@@ -89,11 +89,11 @@ public sealed class AccessGapsTests(PlatformStack stack) : AccessTest(stack)
         Assert.Equal(409, refused.Status);
         Assert.Equal("Your plan allows 10 users and all 10 are in use (active users and open invitations). Deactivate someone or cancel an invitation, or ask your Owner about a bigger plan.", refused.Detail);
 
-        // The app says the same before anyone tries.
+        // The app says exactly the same before anyone tries.
         await GoToSettingsAsync(owner, "users", "Users");
         var inviteButton = owner.GetByRole(AriaRole.Button, new() { Name = "Invite people" });
         await Expect(inviteButton).ToHaveAttributeAsync("aria-disabled", "true");
-        await Expect(inviteButton).ToHaveAccessibleDescriptionAsync(new System.Text.RegularExpressions.Regex("All 10 seats on your plan are in use"));
+        await Expect(inviteButton).ToHaveAccessibleDescriptionAsync("Your plan allows 10 users and all 10 are in use (active users and open invitations). Deactivate someone or cancel an invitation, or ask your Owner about a bigger plan.");
 
         // Cancelling an invitation frees its seat.
         Assert.Equal(204, (await ApiAsync(owner, "DELETE", $"/users/{lastInvited}/invitation")).Status);
