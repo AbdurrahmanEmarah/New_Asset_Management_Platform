@@ -1,22 +1,21 @@
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { createAccessApi, type AccessApi, type Me } from '@/api/access';
+import { demoAssets } from '@/api';
+import { createAccessApi, type AccessApi } from '@/api/access';
+import { createAssetsApi, type AssetsApi } from '@/api/assets';
 import { isThemeMode } from '@/theme/theme';
 import { useTheme } from '@/theme/ThemeProvider';
 import { readAuthConfig, type AuthConfig } from './config';
+import { refreshDelay, refreshSession, restoreSession, startSession, type Session, type Tokens } from './session';
+import { defaultTokenStore, type TokenStore } from './tokenStore';
+
+export type { Session, User } from './session';
 
 // On the web, sign-in opens a pop-up; this closes it and hands the result back.
 WebBrowser.maybeCompleteAuthSession();
 
 export const REDIRECT_PATH = 'auth/callback';
-
-export type User = { name: string; email?: string };
-
-export type Session =
-  | { status: 'signed-out'; error?: string }
-  | { status: 'signing-in' }
-  | { status: 'signed-in'; user: User; accessToken: string; demo: boolean; me?: Me };
 
 type AuthValue = {
   session: Session;
@@ -27,15 +26,29 @@ type AuthValue = {
   /** Development only: use the sample data without a Keycloak realm. */
   signInDemo: (() => void) | null;
   signOut: () => void;
+  /** False on the web, where the sign-in lasts only until the tab closes. */
+  staysSignedIn: boolean;
   /** The Access service for the signed-in person; null in demo mode or when signed out. */
   access: AccessApi | null;
+  /** Assets and Documents for the signed-in person (sample data in demo mode); null when signed out. */
+  assets: AssetsApi | null;
 };
 
 const AuthContext = createContext<AuthValue | null>(null);
 
-export function AuthProvider({ children, config = readAuthConfig() }: { children: ReactNode; config?: AuthConfig }) {
+export function AuthProvider({
+  children,
+  config = readAuthConfig(),
+  store = defaultTokenStore,
+}: {
+  children: ReactNode;
+  config?: AuthConfig;
+  store?: TokenStore;
+}) {
   return config.ok ? (
-    <KeycloakAuth config={config}>{children}</KeycloakAuth>
+    <KeycloakAuth config={config} store={store}>
+      {children}
+    </KeycloakAuth>
   ) : (
     <NoAuth config={config}>{children}</NoAuth>
   );
@@ -53,36 +66,92 @@ function NoAuth({ children, config }: { children: ReactNode; config: Extract<Aut
       signIn: () => setSession({ status: 'signed-out', error: config.message }),
       signInDemo: __DEV__ ? () => setSession(demoSession) : null,
       signOut: () => setSession({ status: 'signed-out' }),
+      staysSignedIn: false,
       access: null,
+      assets: session.status === 'signed-in' ? demoAssets : null,
     }),
     [session, config],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-function KeycloakAuth({ children, config }: { children: ReactNode; config: Extract<AuthConfig, { ok: true }> }) {
+function toTokens(t: AuthSession.TokenResponse): Tokens {
+  return { accessToken: t.accessToken, refreshToken: t.refreshToken, idToken: t.idToken, expiresIn: t.expiresIn, issuedAt: t.issuedAt };
+}
+
+function KeycloakAuth({
+  children,
+  config,
+  store,
+}: {
+  children: ReactNode;
+  config: Extract<AuthConfig, { ok: true }>;
+  store: TokenStore;
+}) {
   const discovery = AuthSession.useAutoDiscovery(config.issuer);
   const redirectUri = AuthSession.makeRedirectUri({ scheme: 'inventra', path: REDIRECT_PATH });
   const [request, response, promptAsync] = AuthSession.useAuthRequest(
     {
       clientId: config.clientId,
       redirectUri,
-      scopes: ['openid', 'profile', 'email'],
+      // offline_access: a refresh token that outlives the browser session, so technicians stay signed in.
+      scopes: ['openid', 'profile', 'email', 'offline_access'],
       responseType: AuthSession.ResponseType.Code,
       usePKCE: true,
     },
     discovery,
   );
-  const [session, setSession] = useState<Session>({ status: 'signed-out' });
+  const [session, setSession] = useState<Session>({ status: 'restoring' });
   const { setMode } = useTheme();
-  const access = useMemo(() => {
-    if (session.status !== 'signed-in' || session.demo) return null;
-    const accessToken = session.accessToken;
-    return createAccessApi(config.apiUrl, () => accessToken);
-  }, [session, config.apiUrl]);
   // A code can be redeemed once; StrictMode runs effects twice in development.
   const redeemed = useRef<string | null>(null);
 
+  const accessFor = useMemo(() => (token: string) => createAccessApi(config.apiUrl, () => token), [config.apiUrl]);
+
+  const applyTheme = useMemo(
+    () => (s: Session) => {
+      if (s.status === 'signed-in' && s.me && isThemeMode(s.me.theme)) setMode(s.me.theme);
+    },
+    [setMode],
+  );
+
+  // On start: sign back in from the stored refresh token.
+  useEffect(() => {
+    let active = true;
+    const refresh = async (refreshToken: string) => {
+      const doc = await AuthSession.fetchDiscoveryAsync(config.issuer);
+      return toTokens(await AuthSession.refreshAsync({ clientId: config.clientId, refreshToken }, doc));
+    };
+    restoreSession(store, refresh, accessFor).then((s) => {
+      if (!active) return;
+      applyTheme(s);
+      setSession((current) => (current.status === 'restoring' ? s : current));
+    });
+    return () => {
+      active = false;
+    };
+  }, [store, config.issuer, config.clientId, accessFor, applyTheme]);
+
+  // Refresh the access token a minute before it expires.
+  useEffect(() => {
+    if (session.status !== 'signed-in' || !discovery) return;
+    const delay = refreshDelay(session, Date.now());
+    if (delay === null) return;
+    const current = session;
+    let timer: ReturnType<typeof setTimeout>;
+    const run = () => {
+      refreshSession(current, store, async (rt) =>
+        toTokens(await AuthSession.refreshAsync({ clientId: config.clientId, refreshToken: rt }, discovery)),
+      ).then((result) => {
+        if ('session' in result) setSession((s) => (s === current ? result.session : s));
+        else timer = setTimeout(run, result.retryInMs);
+      });
+    };
+    timer = setTimeout(run, delay);
+    return () => clearTimeout(timer);
+  }, [session, discovery, store, config.clientId]);
+
+  // After the sign-in page: redeem the code, then ask Access who this is.
   useEffect(() => {
     if (!response || !discovery || !request) return;
     if (response.type === 'success') {
@@ -93,13 +162,9 @@ function KeycloakAuth({ children, config }: { children: ReactNode; config: Extra
         { clientId: config.clientId, code, redirectUri, extraParams: { code_verifier: request.codeVerifier ?? '' } },
         discovery,
       ).then(
-        async (tokens) => {
-          const result = await loadMe(
-            createAccessApi(config.apiUrl, () => tokens.accessToken),
-            tokens.accessToken,
-            tokens.idToken,
-          );
-          if (result.status === 'signed-in' && result.me && isThemeMode(result.me.theme)) setMode(result.me.theme);
+        async (t) => {
+          const result = await startSession(toTokens(t), accessFor(t.accessToken), store);
+          applyTheme(result);
           setSession(result);
         },
         (error: unknown) =>
@@ -114,13 +179,20 @@ function KeycloakAuth({ children, config }: { children: ReactNode; config: Extra
     } else if (response.type === 'cancel' || response.type === 'dismiss') {
       queueMicrotask(() => setSession({ status: 'signed-out' }));
     }
-  }, [response, discovery, request, redirectUri, config.clientId, config.apiUrl, setMode]);
+  }, [response, discovery, request, redirectUri, config.clientId, accessFor, store, applyTheme]);
 
   const cannotSignInReason = !discovery
     ? `Can't reach the sign-in server at ${config.issuer}. Check that it is running and this device can reach it.`
     : !request
       ? 'Getting sign-in ready…'
       : null;
+
+  const apis = useMemo(() => {
+    if (session.status !== 'signed-in') return { access: null, assets: null };
+    if (session.demo) return { access: null, assets: demoAssets };
+    const token = session.accessToken;
+    return { access: accessFor(token), assets: createAssetsApi(config.apiUrl, () => token) };
+  }, [session, accessFor, config.apiUrl]);
 
   const value = useMemo<AuthValue>(
     () => ({
@@ -140,42 +212,16 @@ function KeycloakAuth({ children, config }: { children: ReactNode; config: Extra
       signInDemo: __DEV__ ? () => setSession(demoSession) : null,
       signOut: () => {
         redeemed.current = null;
+        void store.clear();
         setSession({ status: 'signed-out' });
       },
-      access,
+      staysSignedIn: store.persistent,
+      ...apis,
     }),
-    [session, config, cannotSignInReason, promptAsync, access],
+    [session, config, cannotSignInReason, promptAsync, store, apis],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-/**
- * After the token exchange: asks the Access service who this is (GET /api/access/me).
- * A 403 carries a sentence saying why the person can't use the app; it is shown as-is.
- */
-export async function loadMe(access: AccessApi, accessToken: string, idToken?: string): Promise<Session> {
-  try {
-    const me = await access.me();
-    return { status: 'signed-in', user: { name: me.name, email: me.email ?? undefined }, accessToken, demo: false, me };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return { status: 'signed-out', error: message || `Signed in as ${userFromIdToken(idToken).name}, but could not load your account. Try again.` };
-  }
-}
-
-/** Reads the name from the ID token. It was just received from the token endpoint, so it is not re-verified here. */
-export function userFromIdToken(idToken: string | undefined): User {
-  try {
-    const payload = idToken?.split('.')[1];
-    if (!payload) return { name: 'Signed in' };
-    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(payload.length / 4) * 4, '='));
-    const utf8 = decodeURIComponent(Array.from(json, (c) => '%' + c.charCodeAt(0).toString(16).padStart(2, '0')).join(''));
-    const claims = JSON.parse(utf8) as { name?: string; preferred_username?: string; email?: string };
-    return { name: claims.name ?? claims.preferred_username ?? 'Signed in', email: claims.email };
-  } catch {
-    return { name: 'Signed in' };
-  }
 }
 
 export function useAuth(): AuthValue {

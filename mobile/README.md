@@ -55,17 +55,23 @@ The `field-app` client in Keycloak must be a **public** client with **Standard f
 - `http://localhost:8081/*` (web)
 - `inventra://auth/callback` (development and store builds)
 
-Expo Go can't use the `inventra://` address, so on a phone in Expo Go sign-in needs an extra redirect (`exp://<PC IP>:8081/--/auth/callback`) added to the client; the web build needs nothing extra.
+Expo Go uses its own `exp://…` address; the realm's `field-app` client allows `exp://*` for development, so nothing extra is needed.
 
 After sign-in the app calls `GET /api/access/me`. If the server answers 403, its reason is shown on the sign-in screen as written. Changing the theme on **Me** also saves it to your account (`PUT /api/access/me/preferences`).
 
 For the web build the gateway must allow the origin `http://localhost:8081` (CORS).
 
-On a phone, `localhost` means the phone itself: use the PC's IP address in `EXPO_PUBLIC_AUTH_ISSUER` (for example `http://192.168.1.20:18080/realms/inventra`).
+On a phone, `localhost` means the phone itself. Put the PC's IP address in **both** `EXPO_PUBLIC_AUTH_ISSUER` and `EXPO_PUBLIC_API_URL` (for example `http://192.168.1.20:18080/realms/inventra` and `http://192.168.1.20:5200`). Find the IP with `ipconfig` (the IPv4 address of your Wi-Fi adapter).
+
+The phone app keeps you signed in: the refresh token is stored in the phone's secure storage (Keychain / Keystore), refreshed before it expires, and removed when you sign out. In a web browser the sign-in lasts only until the tab closes.
+
+## Assets
+
+Scan an asset's QR tag (or type the tag) to open it: name, tag, type, status, location, its fields, and its documents. Tap a document to open it. **Add a photo** takes a picture with the camera and uploads it to the asset (up to 25 MB); without signal the photo waits on the phone and uploads later. With **Use sample data** the assets come from sample data too (try `INV-00417`).
 
 ## Offline
 
-Every change (ticking a step, typing a reading, completing a job) is saved on the phone first and sent in order. Without signal the app shows **"Offline: N changes saved on this phone"** and retries every 15 seconds. If the server refuses a change (for example the job was completed by someone else), the app shows the server's reason and carries on with the rest.
+Every change (ticking a step, typing a reading, completing a job, adding a photo) is saved on the phone first and sent in order. Without signal the app shows **"Offline: N changes saved on this phone"** and retries every 15 seconds. If the server refuses a change (for example the job was completed by someone else), the app shows the server's reason and carries on with the rest.
 
 To try it, press the Wi-Fi icon on **My jobs**: the sample API then behaves as if there were no signal.
 

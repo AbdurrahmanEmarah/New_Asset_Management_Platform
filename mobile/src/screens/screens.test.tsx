@@ -1,13 +1,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { RefusedError } from '@/api/http';
 import { ApiError } from '@/api/types';
 import { loadMyJobs } from '@/jobs/repository';
 import { resetTestApi, testApi } from '@/test-api';
+import { createSender } from '@/offline/send';
 import { renderScreen } from '@/test-utils';
 import { CompleteJobScreen } from './CompleteJobScreen';
 import { JobDetailScreen } from './JobDetailScreen';
 import { MyJobsScreen } from './MyJobsScreen';
+import { AssetScreen } from './AssetScreen';
 import { ScanScreen } from './ScanScreen';
+import * as WebBrowser from 'expo-web-browser';
 
 jest.mock('@/api', () => {
   const types = jest.requireActual('@/api/types');
@@ -21,6 +25,18 @@ jest.mock('@/api', () => {
     },
   };
 });
+
+jest.mock('@/auth/AuthProvider', () => {
+  const { testApi: holder } = jest.requireActual('@/test-api');
+  return { useAuth: () => ({ assets: holder.assets }) };
+});
+
+let mockShot: { canceled: boolean; assets: { uri: string; mimeType: string; fileSize: number }[] } = { canceled: true, assets: [] };
+jest.mock('expo-image-picker', () => ({
+  requestCameraPermissionsAsync: async () => ({ granted: true, canAskAgain: true }),
+  launchCameraAsync: async () => mockShot,
+}));
+jest.mock('expo-web-browser', () => ({ openBrowserAsync: jest.fn(async () => ({ type: 'opened' })) }));
 
 const mockRouter = { push: jest.fn(), navigate: jest.fn(), back: jest.fn(), replace: jest.fn(), dismissTo: jest.fn(), canGoBack: () => true };
 let mockParams: Record<string, string> = {};
@@ -133,7 +149,7 @@ describe('Job detail', () => {
     expect(queue.getState().pending).toHaveLength(1);
 
     testApi.current.setOnline(true);
-    await queue.flush((c) => testApi.current.send(c));
+    await queue.flush(createSender({ jobs: testApi.current, assets: testApi.assets }));
     await waitFor(() => expect(screen.queryByText(/Offline:/)).toBeNull());
   });
 });
@@ -162,7 +178,7 @@ describe('Complete job', () => {
 });
 
 describe('Scan', () => {
-  it('finds an asset by its typed tag', async () => {
+  it('finds an asset by its typed tag and opens it', async () => {
     await renderScreen(<ScanScreen />);
     expect(screen.getByRole('button', { name: 'Find asset' })).toBeDisabled();
     expect(screen.getByText('Type the code printed under the QR tag first.')).toBeOnTheScreen();
@@ -171,21 +187,22 @@ describe('Scan', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Find asset' }));
 
     expect(await screen.findByText('Chiller CH-2')).toBeOnTheScreen();
-    await fireEvent.press(screen.getByRole('button', { name: 'Open WO-2291: Condenser fan 2 vibration high' }));
-    expect(mockRouter.push).toHaveBeenCalledWith('/job/WO-2291');
+    expect(mockRouter.push).toHaveBeenCalledWith('/asset/a-417');
   });
 
-  it('looks up a scanned QR code', async () => {
+  it('looks up a scanned QR code that holds a link', async () => {
     await renderScreen(<ScanScreen />);
     await fireEvent(screen.getByTestId('camera'), 'barcodeScanned', { type: 'qr', data: 'https://acme.inventra.app/a/INV-00102' });
     expect(await screen.findByText('Fire pump FP-1')).toBeOnTheScreen();
+    expect(mockRouter.push).toHaveBeenCalledWith('/asset/a-102');
   });
 
-  it('says when no asset has the tag', async () => {
+  it('says plainly when no asset at my sites has the tag', async () => {
     await renderScreen(<ScanScreen />);
     await fireEvent.changeText(screen.getByLabelText('Asset tag'), 'INV-99999');
     await fireEvent.press(screen.getByRole('button', { name: 'Find asset' }));
-    expect(await screen.findByText(/No asset has the tag INV-99999/)).toBeOnTheScreen();
+    expect(await screen.findByText(/No asset with tag INV-99999 at your sites/)).toBeOnTheScreen();
+    expect(mockRouter.push).not.toHaveBeenCalled();
   });
 
   it('falls back to typing when camera access is off', async () => {
@@ -193,5 +210,55 @@ describe('Scan', () => {
     await renderScreen(<ScanScreen />);
     expect(screen.getByText(/Camera access is off for Inventra/)).toBeOnTheScreen();
     expect(screen.getByLabelText('Asset tag')).toBeOnTheScreen();
+  });
+});
+
+describe('Asset detail', () => {
+  beforeEach(() => {
+    mockParams = { id: 'a-417' };
+    mockShot = { canceled: true, assets: [] };
+  });
+
+  it('shows the asset, its status with meaning, fields and documents', async () => {
+    await renderScreen(<AssetScreen />);
+    expect(await screen.findByText('Chiller CH-2')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Needs attention')).toBeOnTheScreen();
+    expect(screen.getByText('850 kW')).toBeOnTheScreen();
+    expect(screen.getByText('1 Jun 2021')).toBeOnTheScreen();
+    expect(await screen.findByText('CH-2 service manual.pdf')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Open CH-2 service manual.pdf' }));
+    await waitFor(() => expect(WebBrowser.openBrowserAsync).toHaveBeenCalledWith('https://example.com/sample-documents/d-1'));
+  });
+
+  it('says so when the asset is not at my sites', async () => {
+    mockParams = { id: 'elsewhere' };
+    await renderScreen(<AssetScreen />);
+    expect(await screen.findByText('Asset not found')).toBeOnTheScreen();
+  });
+
+  it('keeps a photo on the phone without signal and uploads it later', async () => {
+    mockShot = { canceled: false, assets: [{ uri: 'blob:photo', mimeType: 'image/jpeg', fileSize: 1_000_000 }] };
+    const { queue } = await renderScreen(<AssetScreen />);
+    await screen.findByText('CH-2 service manual.pdf');
+    testApi.assets.online = false;
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Add a photo' }));
+    expect(await screen.findByText(/Offline: 1 change saved on this phone/)).toBeOnTheScreen();
+    expect(screen.getByText('Saved on this phone. It will upload when there is signal.')).toBeOnTheScreen();
+
+    testApi.assets.online = true;
+    await queue.flush(createSender({ jobs: testApi.current, assets: testApi.assets }));
+    await waitFor(() => expect(screen.queryByText(/Offline:/)).toBeNull());
+    expect(await screen.findByText(/^INV-00417-.*\.jpg$/)).toBeOnTheScreen();
+  });
+
+  it('shows the server’s sentence when it refuses the photo', async () => {
+    mockShot = { canceled: false, assets: [{ uri: 'blob:photo', mimeType: 'image/jpeg', fileSize: 1_000_000 }] };
+    jest.spyOn(testApi.assets, 'uploadDocument').mockRejectedValueOnce(new RefusedError('This asset is retired, so documents can’t be added.', 409));
+    await renderScreen(<AssetScreen />);
+    await screen.findByText('CH-2 service manual.pdf');
+    await fireEvent.press(screen.getByRole('button', { name: 'Add a photo' }));
+    expect(await screen.findByText('This asset is retired, so documents can’t be added.')).toBeOnTheScreen();
   });
 });

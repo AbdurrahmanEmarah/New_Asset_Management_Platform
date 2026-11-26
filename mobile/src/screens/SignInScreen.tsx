@@ -3,12 +3,20 @@ import { useAuth } from '@/auth/AuthProvider';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Button } from '@/ui/Button';
 import { Screen } from '@/ui/Screen';
+import { Loading } from '@/ui/States';
 import { Text } from '@/ui/Text';
 
 export function SignInScreen() {
   const { colors } = useTheme();
   const { session, config, cannotSignInReason, signIn, signInDemo } = useAuth();
   const error = session.status === 'signed-out' ? session.error : undefined;
+  if (session.status === 'restoring') {
+    return (
+      <Screen edges={['top', 'bottom']}>
+        <Loading label="Signing you back in…" />
+      </Screen>
+    );
+  }
   return (
     <Screen edges={['top', 'bottom']}>
       <View style={styles.body}>
