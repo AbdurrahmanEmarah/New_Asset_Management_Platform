@@ -227,4 +227,42 @@ public sealed class AssetTests(AssetsApi api)
         Assert.Contains("doesn't exist", (await FieldErrors(await http.PostAsJsonAsync("/assets", Pump(type.TypeId, "Two", Guid.NewGuid()), Ct)))["siteId"][0]);
         Assert.Single(api.Events.All<SitesRequested>(), e => e.ClientId == client); // asked only once
     }
+
+    [Fact]
+    public async Task Parallel_creates_of_one_type_all_succeed_with_distinct_tags()
+    {
+        var client = await api.ClientAsync();
+        var type = await api.PumpTypeAsync(client);
+        var first = await Read<AssetResponse>(await api.Client(Manager(client)).PostAsJsonAsync("/assets", Pump(type.TypeId, "Before"), Ct));
+
+        var responses = await Task.WhenAll(Enumerable.Range(1, 10).Select(i =>
+            api.Client(Manager(client)).PostAsJsonAsync("/assets", Pump(type.TypeId, $"Parallel {i}"), Ct)));
+        Assert.All(responses, r => Assert.Equal(HttpStatusCode.Created, r.StatusCode));
+        var tags = new List<string> { first.Tag };
+        foreach (var r in responses) tags.Add((await Read<AssetResponse>(r)).Tag);
+        Assert.Equal(11, tags.Distinct().Count());
+        Assert.Equal(Enumerable.Range(1, 11).Select(n => $"PMP-{n:D6}"), tags.Order());
+
+        // Every asset really was saved, not just answered.
+        Assert.Equal(11, (await Read<AssetPage>(await api.Client(Manager(client)).GetAsync($"/assets?typeId={type.TypeId}", Ct))).Total);
+    }
+
+    [Fact]
+    public async Task A_new_counter_continues_after_the_highest_existing_tag()
+    {
+        var client = await api.ClientAsync();
+        var type = await api.PumpTypeAsync(client);
+        await Read<AssetResponse>(await api.Client(Manager(client)).PostAsJsonAsync("/assets", Pump(type.TypeId), Ct));
+
+        // Simulate a type from before the counter existed: its counter row is gone, its assets stay.
+        await using (var conn = new Npgsql.NpgsqlConnection(api.ConnectionString))
+        {
+            await conn.OpenAsync(Ct);
+            await using var cmd = new Npgsql.NpgsqlCommand($"DELETE FROM tag_counters WHERE type_id = '{type.TypeId}'", conn);
+            Assert.Equal(1, await cmd.ExecuteNonQueryAsync(Ct));
+        }
+
+        var next = await Read<AssetResponse>(await api.Client(Manager(client)).PostAsJsonAsync("/assets", Pump(type.TypeId, "After"), Ct));
+        Assert.Equal("PMP-000002", next.Tag);
+    }
 }

@@ -1,6 +1,7 @@
 using Inventra.Assets.Domain;
 using Inventra.BuildingBlocks.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Inventra.Assets.Data;
 
@@ -8,12 +9,13 @@ namespace Inventra.Assets.Data;
 public sealed class AssetsDbContext(DbContextOptions<AssetsDbContext> options) : DbContext(options)
 {
     public const string TagIndex = "ix_assets_tenant_id_tag";
-    public static readonly string[] TenantTables = ["assets", "asset_types", "client_limits", "sites"];
+    public static readonly string[] TenantTables = ["assets", "asset_types", "client_limits", "sites", "tag_counters"];
 
     public DbSet<Asset> Assets => Set<Asset>();
     public DbSet<AssetTypeCopy> Types => Set<AssetTypeCopy>();
     public DbSet<ClientLimit> Limits => Set<ClientLimit>();
     public DbSet<SiteCopy> Sites => Set<SiteCopy>();
+    public DbSet<TagCounter> TagCounters => Set<TagCounter>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -49,6 +51,13 @@ public sealed class AssetsDbContext(DbContextOptions<AssetsDbContext> options) :
             e.Property<uint>("RowVersion").IsRowVersion();
         });
 
+        model.Entity<TagCounter>(e =>
+        {
+            e.ToTable("tag_counters");
+            e.HasKey(c => c.TypeId);
+            e.HasIndex(c => c.TenantId);
+        });
+
         model.Entity<SiteCopy>(e =>
         {
             e.ToTable("sites");
@@ -63,5 +72,28 @@ public sealed class AssetsDbContext(DbContextOptions<AssetsDbContext> options) :
             e.ToTable("client_limits");
             e.HasKey(l => l.TenantId);
         });
+    }
+
+    /// <summary>
+    /// Takes the next tag number for a type, atomically. Must run inside the transaction that inserts
+    /// the asset: the counter row stays locked until that transaction ends, so parallel creates of the
+    /// same type wait in turn, and a rolled-back create gives its number back. The first number of a
+    /// type continues after its highest existing tag (types from before the counter existed).
+    /// </summary>
+    public async Task<int> TakeTagNumberAsync(Guid tenantId, Guid typeId, CancellationToken ct)
+    {
+        var connection = Database.GetDbConnection();
+        await using var command = connection.CreateCommand();
+        command.Transaction = Database.CurrentTransaction?.GetDbTransaction()
+            ?? throw new InvalidOperationException("Take a tag number inside the transaction that saves the asset.");
+        command.CommandText = """
+            INSERT INTO tag_counters (type_id, tenant_id, next_number)
+            VALUES (@type, @tenant, (SELECT COALESCE(MAX(substring(tag FROM '([0-9]+)$')::int), 0) + 2 FROM assets WHERE type_id = @type))
+            ON CONFLICT (type_id) DO UPDATE SET next_number = tag_counters.next_number + 1
+            RETURNING next_number - 1
+            """;
+        command.Parameters.Add(new Npgsql.NpgsqlParameter("type", typeId));
+        command.Parameters.Add(new Npgsql.NpgsqlParameter("tenant", tenantId));
+        return Convert.ToInt32(await command.ExecuteScalarAsync(ct), System.Globalization.CultureInfo.InvariantCulture);
     }
 }

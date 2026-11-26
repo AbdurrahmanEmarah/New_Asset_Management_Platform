@@ -110,7 +110,6 @@ public sealed class AssetTypeCopy
     public List<FieldDefinition> Fields { get; private set; } = [];
     public List<StatusDefinition> Statuses { get; private set; } = [];
     public bool Archived { get; private set; }
-    public int NextNumber { get; private set; } = 1;
 
     public static AssetTypeCopy From(AssetTypePublished e) => new AssetTypeCopy { TypeId = e.TypeId, TenantId = e.ClientId }.Apply(e);
 
@@ -136,8 +135,8 @@ public sealed class AssetTypeCopy
 
     public string? CannotAddAssetReason() => Archived ? $"{Name} is archived, so no new assets of this type can be added. Restore it in Settings › Asset types." : null;
 
-    /// <summary>Takes the next tag, e.g. PMP-000042. Saved with the asset, so a number is never used twice.</summary>
-    public string TakeTag() => $"{TagPrefix}-{NextNumber++:D6}";
+    /// <summary>The tag for a number taken from the type's counter (<see cref="TagCounter"/>), e.g. PMP-000042.</summary>
+    public string TagFor(int number) => $"{TagPrefix}-{number:D6}";
 
     public StatusDefinition? Status(string key) => Statuses.FirstOrDefault(s => s.Key == key);
 }
@@ -164,6 +163,19 @@ public sealed class SiteCopy
     }
 
     public string? CannotPlaceAssetsReason() => IsActive ? null : $"{Name} isn't an active site. Ask your Admin to turn it back on, or choose another site.";
+}
+
+/// <summary>
+/// The next tag number of one asset type. Taken with one atomic statement inside the create's
+/// transaction, so parallel creates queue on this row and never get the same number.
+/// </summary>
+public sealed class TagCounter
+{
+    private TagCounter() { }
+
+    public Guid TypeId { get; private set; }
+    public Guid TenantId { get; private set; }
+    public int NextNumber { get; private set; }
 }
 
 /// <summary>The client's plan limit for assets, from Tenancy's events.</summary>
