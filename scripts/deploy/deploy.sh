@@ -59,7 +59,7 @@ run_job() {
 az extension add --name containerapp --upgrade --yes --only-show-errors
 
 # 1. Infrastructure, with passwords for any secret that doesn't exist yet.
-scripts/deploy/new-secrets.sh "$work/new-secrets.json"
+bash scripts/deploy/new-secrets.sh "$work/new-secrets.json"
 INVENTRA_NEW_SECRETS=$(cat "$work/new-secrets.json") deploy_stage infra false false
 rm -f "$work/new-secrets.json"
 
@@ -68,7 +68,7 @@ registry=$(output registryName)
 login_server=$(output registryLoginServer)
 group "Build and push images ($INVENTRA_IMAGE_TAG)"
 az acr login --name "$registry"
-scripts/build-images.sh --registry "$login_server" --tag "$INVENTRA_IMAGE_TAG" --push
+bash scripts/build-images.sh --registry "$login_server" --tag "$INVENTRA_IMAGE_TAG" --push
 endgroup
 
 # 3. Database jobs.

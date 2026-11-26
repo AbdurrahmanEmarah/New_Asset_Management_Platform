@@ -88,4 +88,4 @@ jobs:
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Deploy
-        run: scripts/deploy/deploy.sh
+        run: bash scripts/deploy/deploy.sh

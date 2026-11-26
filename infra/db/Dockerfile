@@ -14,6 +14,8 @@ WORKDIR /app
 COPY entrypoint.sh /app/entrypoint.sh
 COPY sql /app/sql
 COPY bundles /app/bundles
+# Git on Windows can lose the executable bit (core.fileMode=false), so set it here.
+RUN chmod 0755 /app/entrypoint.sh
 
 # The non-root user that .NET images ship with.
 USER app
