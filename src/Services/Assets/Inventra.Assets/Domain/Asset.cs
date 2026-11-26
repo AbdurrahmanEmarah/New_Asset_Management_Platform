@@ -205,8 +205,15 @@ public sealed class ClientLimit
         return true;
     }
 
+    /// <summary>"ok" below 80% of the plan's assets, "warn" from 80%, "blocked" at 100% (the same rule the create check uses).</summary>
+    public string UsageState(int assets)
+    {
+        var ratio = MaxAssets <= 0 ? 1d : (double)assets / MaxAssets;
+        return ratio >= 1 ? "blocked" : ratio >= 0.8 ? "warn" : "ok";
+    }
+
     /// <summary>Why one more asset can't be added, or null. Blocks at 100% of the plan.</summary>
-    public string? CannotAddReason(int assets) => assets >= MaxAssets
+    public string? CannotAddReason(int assets) => UsageState(assets) == "blocked"
         ? $"Your plan allows {MaxAssets:N0} assets and all {MaxAssets:N0} are in use. Retire assets you no longer need, or ask your Owner about a bigger plan."
         : null;
 }

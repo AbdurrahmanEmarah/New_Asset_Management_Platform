@@ -31,6 +31,8 @@ public static class AssetEndpoints
     public static RouteGroupBuilder MapAssetEndpoints(this RouteGroupBuilder app)
     {
         var assets = app.MapGroup("/assets").WithTags("Assets");
+        app.MapGet("/usage", Usage).WithTags("Assets").RequirePermission(Read).Produces<AssetUsageResponse>()
+            .WithSummary("Assets in use against the plan's limit: ok, warn (80%+) or blocked (100%), with the sentence a create would answer.");
         assets.MapGet("/", List).RequirePermission(Read).Produces<AssetPage>().ProducesValidationProblem()
             .WithSummary("The register, filtered by typeId, siteId, status, parentId and search (tag or name). sort: tag (default), name, status, updated or field:<key> (with typeId); order: asc or desc.");
         assets.MapGet("/{id:guid}", Get).RequirePermission(Read).Produces<AssetResponse>().ProducesProblem(404);
@@ -109,6 +111,15 @@ public static class AssetEndpoints
         var rows = await ordered.ThenBy(a => a.Id).Skip((number - 1) * size).Take(size).ToListAsync(ct);
         var types = await TypesAsync(db, rows, ct);
         return TypedResults.Ok(new AssetPage(rows.Select(a => Summary(a, types, withValues: type is not null)).ToList(), total, number, size, type?.Fields));
+    }
+
+    internal static async Task<IResult> Usage(AssetsDbContext db, IMessageBus bus, ClientCaller caller, TimeProvider clock, CancellationToken ct)
+    {
+        var used = await db.Assets.CountAsync(a => a.RetiredAt == null, ct);
+        var limit = await LimitAsync(db, bus, caller.TenantId, clock.GetUtcNow(), ct);
+        return TypedResults.Ok(limit is null
+            ? new AssetUsageResponse(used, null, "ok", null)
+            : new AssetUsageResponse(used, limit.MaxAssets, limit.UsageState(used), limit.CannotAddReason(used)));
     }
 
     internal static async Task<IResult> Get(Guid id, ClientCaller caller, AssetsDbContext db, CancellationToken ct)

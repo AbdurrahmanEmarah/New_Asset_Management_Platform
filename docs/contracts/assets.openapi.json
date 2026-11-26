@@ -528,6 +528,36 @@
           }
         }
       }
+    },
+    "/usage": {
+      "get": {
+        "tags": [
+          "Assets"
+        ],
+        "summary": "Assets in use against the plan\u0027s limit: ok, warn (80%\u002B) or blocked (100%), with the sentence a create would answer.",
+        "responses": {
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetUsageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -819,6 +849,43 @@
               "string"
             ],
             "format": "date-time"
+          }
+        }
+      },
+      "AssetUsageResponse": {
+        "required": [
+          "used",
+          "limit",
+          "state",
+          "blockedReason"
+        ],
+        "type": "object",
+        "properties": {
+          "used": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "limit": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "state": {
+            "type": "string"
+          },
+          "blockedReason": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
