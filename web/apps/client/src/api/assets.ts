@@ -122,7 +122,18 @@ export interface AssetQuery {
 export interface NewAsset { typeId: string; name: string; statusKey: string; siteId: string | null; location: string; parentId: string | null; values: FieldValues }
 export interface AssetChanges { name: string; statusKey: string; location: string; parentId: string | null; values: FieldValues }
 
+/** Assets in use against the plan's limit (GET /api/assets/usage). limit null means no limit. */
+export interface AssetUsage {
+  used: number;
+  limit: number | null;
+  /** warn at 80% or more, blocked at 100%. */
+  state: UsageState;
+  /** The server's refusal sentence when blocked (the same as the 409 on create). */
+  blockedReason: string | null;
+}
+
 export interface AssetsApi {
+  usage(): Promise<AssetUsage>;
   list(query: AssetQuery): Promise<AssetPage>;
   get(id: string): Promise<Asset>;
   create(body: NewAsset): Promise<Asset>;
@@ -190,6 +201,7 @@ export function createAssetApis(gatewayUrl: string, getToken: TokenSource): Asse
         p.set('order', q.order);
         return ast(`/assets?${p.toString()}`);
       },
+      usage: () => ast('/usage'),
       get: (id) => ast(`/assets/${id}`),
       create: (body) => ast('/assets', json('POST', body)),
       update: (id, body) => ast(`/assets/${id}`, json('PUT', body)),

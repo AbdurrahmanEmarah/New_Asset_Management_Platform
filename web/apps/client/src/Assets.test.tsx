@@ -109,8 +109,9 @@ describe('New and edit asset', () => {
     expect(options).toEqual(['Choose a site']);
   });
 
-  it("shows the plan limit sentence when the register is full", async () => {
-    renderWorkspace('/assets/new?type=t-hvac', { assets: { maxAssets: 7 } });
+  it("shows the server's limit sentence if the register filled up after the form opened", async () => {
+    const usage = vi.fn().mockResolvedValue({ used: 6, limit: 7, state: 'warn', blockedReason: null });
+    renderWorkspace('/assets/new?type=t-hvac', { assets: { maxAssets: 7, assets: { usage } } });
     await userEvent.type(await screen.findByLabelText(/^Name/), 'Chiller CH-9');
     await userEvent.selectOptions(screen.getByLabelText(/^Site/), 'hq');
     await userEvent.selectOptions(screen.getByLabelText(/^Manufacturer/), 'Trane');
@@ -241,5 +242,37 @@ describe('Documents', () => {
     await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete file' }));
     expect(documents.remove).toHaveBeenCalledWith('d2');
     expect(await screen.findByText('Nameplate.jpg was deleted.')).toBeInTheDocument();
+  });
+});
+
+describe('Plan asset limit', () => {
+  const SENTENCE = 'Your plan allows 7 assets and all 7 are in use. Retire assets you no longer need, or ask your Owner about a bigger plan.';
+
+  it('disables New asset with the limit sentence at 100%, and shows the meter', async () => {
+    renderWorkspace('/assets', { assets: { maxAssets: 7 } });
+    expect(await screen.findByRole('meter', { name: 'Assets: 7 of 7, limit reached' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('button', { name: /New asset/ })).toHaveAccessibleDescription(SENTENCE));
+  });
+
+  it('warns at 80% and still allows adding', async () => {
+    renderWorkspace('/assets', { assets: { maxAssets: 8 } });
+    expect(await screen.findByRole('meter', { name: 'Assets: 7 of 8, near the limit' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /New asset/ })).not.toHaveAttribute('aria-disabled');
+  });
+
+  it('shows no meter when the plan has no limit', async () => {
+    renderWorkspace('/assets', { assets: { maxAssets: null } });
+    await row('Chiller CH-2');
+    expect(screen.queryByRole('meter', { name: /Assets/ })).not.toBeInTheDocument();
+  });
+
+  it('blocks the new-asset form at the limit, and frees a place after a retire', async () => {
+    const { assets } = renderWorkspace('/assets/new?type=t-hvac', { assets: { maxAssets: 7 } });
+    expect(await screen.findByText(SENTENCE, { selector: '.notice div' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create asset' })).toHaveAccessibleDescription(SENTENCE);
+    await assets.retire('a2', 'Replaced');
+    await userEvent.click(screen.getByRole('link', { name: 'Assets' , current: false }));
+    expect(await screen.findByRole('meter', { name: 'Assets: 6 of 7, near the limit' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /New asset/ })).not.toHaveAttribute('aria-disabled');
   });
 });

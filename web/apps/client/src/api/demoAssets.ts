@@ -77,14 +77,16 @@ const DOC_SEEDS: DocumentFile[] = [
 ];
 
 export interface DemoAssetOptions {
-  maxAssets?: number;
+  /** null: no limit. */
+  maxAssets?: number | null;
   storageLimitBytes?: number;
   now?: () => Date;
 }
 
 export function createDemoAssetApis(options: DemoAssetOptions = {}): AssetApis {
   const now = options.now ?? (() => new Date());
-  const maxAssets = options.maxAssets ?? 2000;
+  const maxAssets = options.maxAssets === undefined ? 2000 : options.maxAssets;
+  const limitSentence = (n: number) => `Your plan allows ${n.toLocaleString('en-US')} assets and all ${n.toLocaleString('en-US')} are in use. Retire assets you no longer need, or ask your Owner about a bigger plan.`;
   const storageLimit = options.storageLimitBytes ?? 20 * 1024 ** 3;
   let types: AssetType[] = clone(TYPE_SEEDS);
   let assets: StoredAsset[] = clone(ASSET_SEEDS);
@@ -256,6 +258,12 @@ export function createDemoAssetApis(options: DemoAssetOptions = {}): AssetApis {
       templates: async () => clone(TEMPLATE_SEEDS),
     },
     assets: {
+      usage: async () => {
+        const used = assets.filter((x) => !x.retiredAt).length;
+        if (maxAssets === null) return { used, limit: null, state: 'ok', blockedReason: null };
+        const state = used >= maxAssets ? 'blocked' : used / maxAssets >= 0.8 ? 'warn' : 'ok';
+        return { used, limit: maxAssets, state, blockedReason: state === 'blocked' ? limitSentence(maxAssets) : null };
+      },
       list: async (q) => {
         const term = q.search.trim().toLowerCase();
         const rows = assets
@@ -289,7 +297,7 @@ export function createDemoAssetApis(options: DemoAssetOptions = {}): AssetApis {
         const valueErrors = checkValues(t, body.values);
         if (Object.keys(valueErrors).length) throw invalid(valueErrors);
         const live = assets.filter((x) => !x.retiredAt).length;
-        if (live >= maxAssets) throw new ApiError(409, `Your plan allows ${maxAssets.toLocaleString('en-US')} assets and all ${maxAssets.toLocaleString('en-US')} are in use. Retire assets you no longer need, or ask your Owner about a bigger plan.`);
+        if (maxAssets !== null && live >= maxAssets) throw new ApiError(409, limitSentence(maxAssets));
         const n = counters.get(t.id) ?? 1;
         counters.set(t.id, n + 1);
         const at = now().toISOString();

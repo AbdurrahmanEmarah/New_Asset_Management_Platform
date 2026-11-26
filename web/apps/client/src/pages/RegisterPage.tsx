@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useDebounced, useLoad } from '../../../../shared/hooks';
-import { Button, Notice, PlusIcon, StatusPill } from '../../../../shared/ui';
+import { Button, Notice, PlusIcon, StatusPill, UsageMeter } from '../../../../shared/ui';
 import type { AssetQuery, FieldDefinition, SortKey } from '../api/assets';
 import { useAssetApis } from '../api/context';
 import { readOnlyReason, sitesWith, useMe } from '../me';
@@ -45,6 +45,9 @@ export function RegisterPage() {
   const effective = { ...query, search: debounced };
   const [page, reload] = useLoad(() => assets.list(effective), [assets, JSON.stringify(effective)]);
   const [types] = useLoad(() => catalog.types(true), [catalog]);
+  // Loaded on every visit, so it is fresh after a create or retire elsewhere.
+  const [usage] = useLoad(() => assets.usage(), [assets]);
+  const limit = usage.data?.limit != null ? usage.data : null;
   const { sites, people } = useLookups();
 
   const typeList = types.data ?? [];
@@ -52,7 +55,7 @@ export function RegisterPage() {
   const writable = sitesWith(me, 'assets.write');
   const canAdd = writable === 'all' || writable.length > 0;
   const activeTypes = typeList.filter((t) => !t.isArchived);
-  const newReason = readOnlyReason(me) ?? (!canAdd ? 'You need the assets.write permission at one or more sites to add assets. Ask an Admin.'
+  const newReason = readOnlyReason(me) ?? (usage.data?.state === 'blocked' ? usage.data.blockedReason ?? 'All the assets your plan allows are in use. Retire assets you no longer need, or ask your Owner about a bigger plan.' : null) ?? (!canAdd ? 'You need the assets.write permission at one or more sites to add assets. Ask an Admin.'
     : types.status === 'ready' && activeTypes.length === 0 ? 'Create an asset type first, in Settings › Asset types.' : null);
 
   const rows = page.data?.items ?? [];
@@ -83,6 +86,12 @@ export function RegisterPage() {
             {type ? `${type.name}: showing the fields defined for this type.` : 'Every asset your roles let you see, across all types and sites.'}
           </p>
         </div>
+        {limit && limit.limit !== null ? (
+          <div style={{ minWidth: 180 }}>
+            <span className="tile-label">Assets on your plan</span>
+            <UsageMeter label="Assets" used={limit.used} limit={limit.limit} state={limit.state} />
+          </div>
+        ) : null}
         <Button variant="primary" disabledReason={newReason} onClick={() => navigate(`/assets/new${query.typeId ? `?type=${query.typeId}` : ''}`)}>
           <PlusIcon /> New asset
         </Button>

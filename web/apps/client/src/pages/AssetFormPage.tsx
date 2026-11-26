@@ -20,16 +20,18 @@ export function AssetFormPage() {
   const { assets, catalog } = useAssetApis();
   const [existing, reloadExisting] = useLoad(() => (id ? assets.get(id) : Promise.resolve(null)), [assets, id]);
   const [types, reloadTypes] = useLoad(() => catalog.types(false), [catalog]);
+  const [usage] = useLoad(() => (id ? Promise.resolve(null) : assets.usage()), [assets, id]);
+  const limitReason = usage.data?.state === 'blocked' ? usage.data.blockedReason ?? 'All the assets your plan allows are in use.' : null;
 
   if (existing.status === 'error') return <div className="page"><Notice kind="error" action={<Button size="sm" onClick={reloadExisting}>Try again</Button>}>The asset didn't load: {existing.error.message}</Notice></div>;
   if (types.status === 'error') return <div className="page"><Notice kind="error" action={<Button size="sm" onClick={reloadTypes}>Try again</Button>}>Asset types didn't load: {types.error.message}</Notice></div>;
   if ((id && !existing.data) || !types.data) return <div className="page"><p className="muted" style={{ margin: 0 }}>Loading…</p></div>;
-  return <AssetForm key={id ?? 'new'} asset={existing.data ?? null} types={types.data} />;
+  return <AssetForm key={id ?? 'new'} asset={existing.data ?? null} types={types.data} limitReason={limitReason} />;
 }
 
 interface Form { typeId: string; name: string; statusKey: string; siteId: string; location: string; parent: AssetRef | null; values: FieldValues }
 
-function AssetForm({ asset, types }: { asset: Asset | null; types: AssetType[] }) {
+function AssetForm({ asset, types, limitReason }: { asset: Asset | null; types: AssetType[]; limitReason: string | null }) {
   const { assets } = useAssetApis();
   const me = useMe();
   const navigate = useNavigate();
@@ -99,6 +101,7 @@ function AssetForm({ asset, types }: { asset: Asset | null; types: AssetType[] }
       <nav aria-label="Breadcrumb" className="crumbs"><Link to="/assets">Assets</Link><span aria-hidden="true">/</span>{asset ? <><Link to={`/assets/${asset.id}`}>{asset.tag}</Link><span aria-hidden="true">/</span></> : null}<span>{asset ? 'Edit' : 'New'}</span></nav>
       <div className="page-head"><h1>{title}</h1></div>
       {asset?.cannotEditReason ? <Notice kind="warn">{asset.cannotEditReason}</Notice> : null}
+      {limitReason ? <Notice kind="warn">{limitReason}</Notice> : null}
       <form className="card asset-form" onSubmit={submit} noValidate>
         {formError ? <Notice kind="error">{formError}</Notice> : null}
         {asset ? null : (
@@ -147,7 +150,7 @@ function AssetForm({ asset, types }: { asset: Asset | null; types: AssetType[] }
 
         <div className="dialog-actions">
           <Button onClick={() => navigate(asset ? `/assets/${asset.id}` : '/assets')}>Cancel</Button>
-          <Button type="submit" variant="primary" busy={busy} disabledReason={readOnlyReason(me) ?? asset?.cannotEditReason ?? (types.length === 0 && !asset ? 'Create an asset type first, in Settings › Asset types.' : null)}>
+          <Button type="submit" variant="primary" busy={busy} disabledReason={readOnlyReason(me) ?? asset?.cannotEditReason ?? limitReason ?? (types.length === 0 && !asset ? 'Create an asset type first, in Settings › Asset types.' : null)}>
             {busy ? 'Saving…' : asset ? 'Save asset' : 'Create asset'}
           </Button>
         </div>
