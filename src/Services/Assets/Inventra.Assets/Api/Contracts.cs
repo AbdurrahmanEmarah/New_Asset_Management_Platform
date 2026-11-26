@@ -19,6 +19,13 @@ public sealed record StatusRef(string Key, string Label, string Meaning);
 
 public sealed record AssetRef(Guid Id, string Tag, string Name);
 
+/// <summary>
+/// Assets in use (not retired) against the plan. Limit is null while the plan's limit hasn't reached
+/// Assets yet. State: ok, warn (80% or more), blocked (100%). BlockedReason is the sentence a create
+/// would answer with, or null.
+/// </summary>
+public sealed record AssetUsageResponse(int Used, int? Limit, string State, string? BlockedReason);
+
 /// <summary>A row of the register. Values is only filled when the list is filtered by one type (its fields are the page's Columns).</summary>
 public sealed record AssetSummary(
     Guid Id, string Tag, string Name, Guid TypeId, string TypeName, StatusRef Status, Guid? SiteId, string Location,

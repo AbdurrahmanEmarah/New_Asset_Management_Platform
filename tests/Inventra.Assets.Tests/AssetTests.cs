@@ -265,4 +265,41 @@ public sealed class AssetTests(AssetsApi api)
         var next = await Read<AssetResponse>(await api.Client(Manager(client)).PostAsJsonAsync("/assets", Pump(type.TypeId, "After"), Ct));
         Assert.Equal("PMP-000002", next.Tag);
     }
+
+    [Theory]
+    [InlineData(10, 7, "ok")]
+    [InlineData(10, 8, "warn")]
+    [InlineData(2, 2, "blocked")]
+    public async Task Usage_shows_the_plan_state_with_the_same_rule_as_create(int max, int create, string state)
+    {
+        var client = await api.ClientAsync(maxAssets: max);
+        var type = await api.PumpTypeAsync(client);
+        var http = api.Client(Manager(client));
+        for (var i = 0; i < create; i++) await Read<AssetResponse>(await http.PostAsJsonAsync("/assets", Pump(type.TypeId, $"A{i}"), Ct));
+
+        var usage = await Read<AssetUsageResponse>(await http.GetAsync("/usage", Ct));
+        Assert.Equal((create, (int?)max, state), (usage.Used, usage.Limit, usage.State));
+        if (state == "blocked")
+        {
+            var refusal = await Problem(await http.PostAsJsonAsync("/assets", Pump(type.TypeId, "One more"), Ct), HttpStatusCode.Conflict);
+            Assert.Equal(refusal, usage.BlockedReason);
+        }
+        else Assert.Null(usage.BlockedReason);
+    }
+
+    [Fact]
+    public async Task Usage_without_a_limit_yet_asks_Tenancy_and_counts_only_live_assets()
+    {
+        var client = Guid.NewGuid();
+        var usage = await Read<AssetUsageResponse>(await api.Client(Manager(client)).GetAsync("/usage", Ct));
+        Assert.Equal((0, (int?)null, "ok", (string?)null), (usage.Used, usage.Limit, usage.State, usage.BlockedReason));
+        await api.Events.WaitForAsync<ClientLimitsRequested>(e => e.ClientId == client);
+
+        var other = await api.ClientAsync();
+        var type = await api.PumpTypeAsync(other);
+        var asset = await Read<AssetResponse>(await api.Client(Manager(other)).PostAsJsonAsync("/assets", Pump(type.TypeId), Ct));
+        await Read<AssetResponse>(await api.Client(Manager(other)).PostAsJsonAsync($"/assets/{asset.Id}/retire", new RetireAssetRequest("Gone"), Ct));
+        Assert.Equal(0, (await Read<AssetUsageResponse>(await api.Support(other).GetAsync("/usage", Ct))).Used);
+        Assert.Equal(HttpStatusCode.Forbidden, (await api.Client(TestUser.Member(other, "No perms")).GetAsync("/usage", Ct)).StatusCode);
+    }
 }
